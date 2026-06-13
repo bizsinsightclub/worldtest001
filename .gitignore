@@ -1,0 +1,21 @@
+# 번역 중간 산출물 (병합 결과 lorebook_ko.json 만 추적)
+_ko_work/
+
+# 파이썬 캐시
+__pycache__/
+*.pyc
+
+# 검증용 임시 파일
+.playwright-mcp/
+*.jpeg
+page-*.png
+
+# OS
+Thumbs.db
+.DS_Store
+
+# OMC orchestration state
+.omc/
+
+# stray subagent dump
+*namemap_dump.txt
