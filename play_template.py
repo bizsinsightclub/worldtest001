@@ -69,6 +69,11 @@ ruby{ruby-position:over} rt{font-size:.5em;color:var(--gold);font-weight:600}
 main{position:relative;overflow:hidden}
 .view{display:none;position:absolute;inset:0;overflow:auto}
 .view.active{display:block}
+/* 모바일: 햄버거 드로어 + 레일 시트 (기본은 데스크톱 — 토글/스크림 숨김) */
+.navtoggle{display:none}
+.railtoggle{display:none}
+#scrim{display:none;position:fixed;inset:0;background:#0009;z-index:60}
+body.nav-open #scrim,body.rail-open #scrim{display:block}
 #view-wiki{padding:0;overflow:hidden}
 #wikiFrame{width:100%;height:100%;border:0;display:block;background:var(--bg)}
 .pad{max-width:1100px;margin:0 auto;padding:26px 30px 60px}
@@ -102,7 +107,7 @@ h2.title{font-size:26px;margin:.1em 0 .5em;color:var(--gold-bright)}
 .psn-form input,.psn-form textarea{width:100%;box-sizing:border-box;background:#120724;border:1px solid var(--line);color:var(--ink);
   border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13.5px}
 .psn-form textarea{min-height:84px;resize:vertical;line-height:1.55}
-.psn-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.psn-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;justify-content:center}
 .startset{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin:18px 0 4px;
   border-top:1px solid var(--line-soft);padding-top:16px}
 .startset .ss-lab{font-size:12px;color:var(--ink-faint)}
@@ -318,6 +323,42 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .sdetail .en{font-size:12px;color:var(--ink-faint);margin:2px 0 12px}
 .relnote{margin-top:12px;font-size:13px;color:var(--ink-dim);border-left:2px solid var(--gold-deep);padding:2px 0 2px 10px}
 @media(max-width:760px){.status-wrap{grid-template-columns:1fr}.sdetail{flex-direction:column}}
+@media(max-width:640px){
+  #topbar{padding:0 12px;gap:8px}
+  .navtoggle{display:inline-flex;font-size:17px;line-height:1;padding:6px 11px}
+  .brand{font-size:15px}.brand small{display:none}
+  #runtag{display:none}
+  #btnSettings{font-size:0;padding:7px 10px}
+  #btnSettings::before{content:"⚙";font-size:15px}
+  /* nav → 좌측 드로어 */
+  #nav{position:fixed;top:0;left:0;bottom:0;width:230px;margin:0;flex-direction:column;gap:4px;
+    background:linear-gradient(180deg,#2a153e,#1a0c28);border-right:1px solid var(--line);
+    padding:64px 12px 16px;transform:translateX(-100%);transition:transform .22s ease;z-index:70;overflow:auto}
+  body.nav-open #nav{transform:none}
+  #nav .navbtn{width:100%;text-align:left;font-size:15px;padding:11px 14px}
+  /* 플레이: 단일 컬럼 + 레일 우측 시트 */
+  #view-play.active{grid-template-columns:1fr}
+  #log{padding:16px 16px;max-width:none}
+  #composer{padding:10px 14px}
+  #composer .inwrap,#composer .actbar,#choices{max-width:none}
+  body.on-play .railtoggle{display:inline-flex;position:fixed;right:14px;bottom:88px;z-index:55;
+    align-items:center;background:linear-gradient(180deg,#3a1a50,#2a0f38);border:1px solid var(--gold-deep);
+    color:var(--gold-bright);border-radius:22px;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:var(--shadow)}
+  #rail{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:84vw;transform:translateX(100%);
+    transition:transform .22s ease;z-index:70}
+  body.rail-open #rail{transform:none}
+  /* 시작 화면 */
+  .pad{padding:18px 14px}
+  .hero-title{font-size:44px}
+  .pslot{width:46%}
+  .psn-grid{grid-template-columns:1fr}
+  .startset{gap:10px}
+  .sitcard{margin:0 0 14px}
+  /* 모달 */
+  #modal,#impModal,#qlipModal{padding:12px}
+  .mbox{padding:18px 16px}
+  .qlip-head{flex-wrap:wrap;justify-content:center;text-align:center}
+}
 .axes{margin-top:10px}
 .axline{font-size:11px;color:var(--ink-dim);margin-bottom:7px}
 .axline .axhd{display:flex;justify-content:space-between;margin-bottom:2px}
@@ -722,7 +763,7 @@ const SEPHIROT = [
   {key:'hesed', name:'헤세드', sub:'자비', src:'최근 대화 · 당신의 입력', color:'#e87aa6', why:'끊임없이 확장되는 상호작용의 흐름. 유저가 더해가는 맥락.'},
   {key:'gevurah', name:'게부라', sub:'엄격·힘', src:'최근 대화 · 서사 응답 누적', color:'#d2705a', why:'콘텍스트를 제한·조율하는 힘. 누적된 서사가 현재를 묶는다.'},
   {key:'tiphereth', name:'티페리트', sub:'조화', src:'페르소나 — 주인공 프로필', color:'#f0d060', why:'나무 정중앙의 자아(Ego). 정체성의 중심 축을 잡는 페르소나.'},
-  {key:'netzach', name:'네짜', sub:'영원', src:'로어 — 세계 상태·영역', color:'#a98be6', why:'반복 참조되는 집단적 기억과 신화. 변하지 않는 설정의 창고.'},
+  {key:'netzach', name:'네짜흐', sub:'영원', src:'로어 — 세계 상태·영역', color:'#a98be6', why:'반복 참조되는 집단적 기억과 신화. 변하지 않는 설정의 창고.'},
   {key:'hod', name:'호드', sub:'영광', src:'장기 기억 — 호감도·세계의 기억', color:'#5fc0d6', why:'정보를 기록·보존·분석하는 내적 메커니즘. 관계와 기억의 논리.'},
   {key:'yesod', name:'예소드', sub:'기초', src:'캐릭터 — 장착/효과 모듈', color:'#8fd0a8', why:'현실로 출력되기 직전의 아스트랄 통로. 인격의 형태를 갖추는 필터.'},
   {key:'malkuth', name:'말쿠트', sub:'왕국', src:'생성 가이던스 — 상태 델타', color:'#9a8eb8', why:'모든 연산이 한 줄의 텍스트로 물질화되는 현실. 최종 매듭.'},
@@ -885,6 +926,8 @@ function show(v){
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('#nav .navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  document.body.classList.toggle('on-play', v==='play');
+  document.body.classList.remove('nav-open','rail-open');   // 뷰 전환 시 모바일 드로어/시트 닫기
   if(v==='status')renderStatus();
   if(v==='equip')renderEquip();
   if(v==='wiki')ensureWiki();
@@ -926,7 +969,7 @@ function renderYouMode(){
     : '팩션을 고르고 카드를 누르면 위 슬롯(주인공 → 동행)에 들어갑니다. 슬롯의 ✕ 또는 카드를 다시 눌러 해제.';
 }
 function _psnVal(id){ const x=document.getElementById(id); return x?x.value:''; }
-function _psnGrab(){ return {id:(pickPersona&&pickPersona.id)||null, name:_psnVal('psnName').trim(), alias:_psnVal('psnAlias').trim(),
+function _psnGrab(){ return {id:(pickPersona&&pickPersona.id)||null, name:_psnVal('psnName').trim(),
   age:_psnVal('psnAge').trim(), gender:_psnVal('psnGender').trim(), detail:_psnVal('psnDetail').trim()}; }
 function renderPersonaPanel(){
   const el=document.getElementById('personaPanel'); if(!el) return;
@@ -936,13 +979,12 @@ function renderPersonaPanel(){
   const chips = list.length ? list.map(p=>'<span class="psn-chip'+(pickPersona&&pickPersona.id===p.id?' on':'')+'" data-id="'+p.id+'">'+esc(p.name)+'<button class="del" data-del="'+p.id+'" title="삭제">✕</button></span>').join('')
     : '<span class="muted" style="font-size:12px">저장된 페르소나 없음 — 아래에서 만들어 보세요.</span>';
   el.innerHTML='<div class="psn-chips">'+chips+'</div><div class="psn-form"><div class="psn-grid">'+
-    '<div><label>이름 <span class="req">*</span></label><input id="psnName" maxlength="40" value="'+esc(d.name||'')+'" placeholder="예: 하와"></div>'+
-    '<div><label>별명 <span class="muted" style="font-size:10px">(AI 미인식·표시용)</span></label><input id="psnAlias" maxlength="40" value="'+esc(d.alias||'')+'"></div>'+
+    '<div class="full"><label>이름 <span class="req">*</span></label><input id="psnName" maxlength="40" value="'+esc(d.name||'')+'" placeholder="예: 하와"></div>'+
     '<div><label>나이</label><input id="psnAge" maxlength="12" value="'+esc(d.age||'')+'" placeholder="예: 20"></div>'+
     '<div><label>성별</label><input id="psnGender" maxlength="12" value="'+esc(d.gender||'')+'" placeholder="예: 여성"></div>'+
     '<div class="full"><label>상세 정보 <span class="req">*</span></label><textarea id="psnDetail" maxlength="2000" placeholder="성격·배경·동기·특징을 자유롭게 작성해 주세요.">'+esc(d.detail||'')+'</textarea></div>'+
-    '</div><div class="psn-actions"><button type="button" class="btn" id="psnUseOnce">이 작품용으로 적용</button>'+
-    '<button type="button" class="btn ghost" id="psnSaveShared">공용으로 저장·적용</button></div></div>';
+    '</div><div class="psn-actions"><button type="button" class="btn" id="psnUseOnce">세계관 관측</button>'+
+    '<button type="button" class="btn ghost" id="psnSaveShared">고정</button></div></div>';
   el.querySelectorAll('.psn-chip').forEach(c=>c.onclick=e=>{ if(e.target.dataset.del)return; const p=loadPersonas().find(x=>x.id===c.dataset.id); if(p){ pickPersona=Object.assign({},p); renderPersonaPanel(); renderSlots(); updateStartBtn(); } });
   el.querySelectorAll('.psn-chip .del').forEach(b=>b.onclick=e=>{ e.stopPropagation(); deletePersona(b.dataset.del); if(pickPersona&&pickPersona.id===b.dataset.del)pickPersona=null; renderPersonaPanel(); renderSlots(); updateStartBtn(); });
   const commit=(save)=>{ const p=_psnGrab(); if(!p.name||!p.detail){ alert('이름과 상세 정보는 필수입니다.'); return; } pickPersona = save? Object.assign({},savePersona(p)) : (p.id=null,p); renderPersonaPanel(); renderSlots(); updateStartBtn(); };
@@ -961,7 +1003,7 @@ function renderStartSet(){
 }
 
 function renderSlots(){
-  const slots=[ youMode==='persona' ? {role:'p',persona:true,label:'내 페르소나'} : {role:'p',id:pickP,label:'주인공'},
+  const slots=[ youMode==='persona' ? {role:'p',persona:true,label:'관측자'} : {role:'p',id:pickP,label:'주인공'},
     {role:'c',id:pickC[0],label:'동행 1'},{role:'c',id:pickC[1],label:'동행 2'},{role:'c',id:pickC[2],label:'동행 3'}];
   document.getElementById('pickSlots').innerHTML=slots.map(s=>{
     if(s.persona){ return (pickPersona&&pickPersona.name)
@@ -1608,6 +1650,10 @@ function boot(){
   document.getElementById('handNext').onclick=()=>pageScroll(1);
   if(hw) hw.addEventListener('scroll',updateHandNav,{passive:true});
   window.addEventListener('resize',updateHandNav);
+  // 모바일: 햄버거 드로어 + 레일 시트
+  document.getElementById('navToggle').onclick=()=>document.body.classList.toggle('nav-open');
+  document.getElementById('railToggle').onclick=()=>{ renderRail(); document.body.classList.toggle('rail-open'); };
+  document.getElementById('scrim').onclick=()=>document.body.classList.remove('nav-open','rail-open');
   document.querySelectorAll('#youMode button').forEach(b=>b.onclick=()=>setYouMode(b.dataset.m));
   document.getElementById('startBtn').onclick=()=>{
     if(youMode==='persona'){
@@ -1648,6 +1694,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
 <body>
 <div id="app">
   <header id="topbar">
+    <button class="tbtn navtoggle" id="navToggle" aria-label="메뉴">☰</button>
     <div class="brand">바벨의 도서관<small>Magical Girl Record</small></div>
     <nav id="nav">
       <button class="navbtn" id="navStart" data-view="start">시작 · 회차</button>
@@ -1660,6 +1707,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
     <span id="runtag"></span>
     <button class="tbtn" id="btnSettings" title="API 설정 — 부를 인격 파편(LLM)의 출처·식별자를 정합니다">⚙ 인격 파편 조율</button>
   </header>
+  <div id="scrim"></div>
   <main>
     <!-- 시작 / 회차 선택 -->
     <section id="view-start" class="view active">
@@ -1672,8 +1720,8 @@ HTML_SHELL = r"""<!DOCTYPE html>
         <div class="card2 pick-card">
           <h3 class="center">‘당신’과 동행 구성</h3>
           <div class="youmode" id="youMode">
-            <button type="button" data-m="persona">✦ 내 페르소나</button>
-            <button type="button" data-m="canon">캐논 인물로 플레이</button>
+            <button type="button" data-m="persona">✦ 관측자</button>
+            <button type="button" data-m="canon">마기아</button>
           </div>
           <div id="personaPanel" class="persona-panel"></div>
           <div class="pickslots" id="pickSlots"></div>
@@ -1704,6 +1752,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
 
     <!-- 플레이 -->
     <section id="view-play" class="view">
+      <button id="railToggle" class="railtoggle" aria-label="관계 보기">관계 ▸</button>
       <div id="playmain">
         <div id="log"></div>
         <div id="composer">
