@@ -766,7 +766,12 @@ function grabUsage(o, u){
         u.cacheRead=mu.cache_read_input_tokens||0; u.cacheCreate=mu.cache_creation_input_tokens||0; }
       if(o.type==='message_delta'&&o.usage){ u.outTok=o.usage.output_tokens||u.outTok; }
     }
-    else if(API.provider==='gemini'){ if(o.usageMetadata){ u.inTok=o.usageMetadata.promptTokenCount||u.inTok; u.outTok=o.usageMetadata.candidatesTokenCount||u.outTok; } }
+    else if(API.provider==='gemini'){ if(o.usageMetadata){ const m=o.usageMetadata;
+      const cc=m.cachedContentTokenCount||0;                       // 암묵 캐싱(2.5 기본) — 90% 할인
+      // Gemini promptTokenCount는 캐시 토큰 포함 → 풀과금 입력은 (전체 - 캐시)로 정규화(앤트로픽과 의미 통일)
+      const pt=m.promptTokenCount||0; if(pt) u.inTok=Math.max(0,pt-cc);
+      if(cc) u.cacheRead=cc;
+      u.outTok=m.candidatesTokenCount||u.outTok; } }
   }catch(e){}
 }
 async function mockLLM(system,history,onTok){
