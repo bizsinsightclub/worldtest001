@@ -171,7 +171,27 @@ def build(report_only=False):
     canon_json = json.dumps(canon, ensure_ascii=False, separators=(",", ":"))
     world_json = json.dumps(world, ensure_ascii=False, separators=(",", ":"))
     assets_json = json.dumps(assets, ensure_ascii=False, separators=(",", ":"))
-    html = play_template.page(canon_json, world_json, assets_json)
+
+    # ----- 위키 임베드(iframe srcdoc): 같은 ds로 위키 HTML 생성, 이미지는 부모 공유로 중복 제거 -----
+    import wiki_template
+    mappos_json = json.dumps(build_wiki.MAP_POS, ensure_ascii=False)
+    try:
+        import geo_japan
+        mapgeo = geo_japan.build_map()
+        if mapgeo:
+            mapgeo["kr"] = dict(build_wiki.DISTRICT_KR, Hokkaido="홋카이도")
+    except Exception as e:
+        print("!! 지도 생성 실패, 폴백 사용:", e)
+        mapgeo = None
+    mapgeo_json = json.dumps(mapgeo, ensure_ascii=False, separators=(",", ":"))
+    wiki_data = dict(canon, images={})  # 이미지는 부모(CANON)에서 가져옴 → 중복 제거
+    wiki_data_json = json.dumps(wiki_data, ensure_ascii=False, separators=(",", ":"))
+    wiki_html = wiki_template.page(wiki_data_json, mappos_json, mapgeo_json,
+                                   extra_css=play_template.WIKI_THEME_CSS)
+    wikidoc_json = json.dumps(wiki_html, ensure_ascii=False)
+    print("위키 임베드: %.2f MB (이미지 부모 공유)" % (len(wiki_html) / 1024 / 1024))
+
+    html = play_template.page(canon_json, world_json, assets_json, wikidoc_json)
     with open(OUT_HTML, "w", encoding="utf-8") as f:
         f.write(html)
     print("\n생성 완료: %s  (%.1f MB)" % (OUT_HTML, os.path.getsize(OUT_HTML) / 1024 / 1024))

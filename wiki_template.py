@@ -403,6 +403,8 @@ body.admin h3[data-ie],body.admin h2[data-ie],body.admin p[data-ie]{display:bloc
 JS = r"""
 // ===== 데이터 + 편집(관리자) 레이어 =====
 const DATA = JSON.parse(document.getElementById('wikidata').textContent);
+// 플레이 앱 iframe 임베드 시: 이미지 중복 방지 — 부모(CANON)의 이미지 공유
+try{ if(window.parent && window.parent!==window && window.parent.CANON && (!DATA.images || !Object.keys(DATA.images).length)) DATA.images = window.parent.CANON.images; }catch(e){}
 const FACTIONS = {
   rep:{label:'지역 대표',color:'var(--rep)'}, bureau:{label:'마법소녀청·협력',color:'var(--bureau)'},
   trainee:{label:'연습생',color:'var(--trainee)'}, shikoku:{label:'시고쿠 (타마모)',color:'var(--shikoku)'},
@@ -1114,8 +1116,8 @@ boot();
 """
 
 
-def page(data_json, mappos_json, mapgeo_json="null"):
-    css = CSS.replace("__NOISE__", NOISE)
+def page(data_json, mappos_json, mapgeo_json="null", extra_css=""):
+    css = CSS.replace("__NOISE__", NOISE) + (extra_css or "")
     js = (JS.replace("__MAPPOS__", mappos_json)
             .replace("__MAPGEO__", mapgeo_json))
     # DATA 는 별도 <script id="wikidata"> 로 주입 (내보내기 시 교체 용이).

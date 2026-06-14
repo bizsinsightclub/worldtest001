@@ -69,6 +69,8 @@ ruby{ruby-position:over} rt{font-size:.5em;color:var(--gold);font-weight:600}
 main{position:relative;overflow:hidden}
 .view{display:none;position:absolute;inset:0;overflow:auto}
 .view.active{display:block}
+#view-wiki{padding:0;overflow:hidden}
+#wikiFrame{width:100%;height:100%;border:0;display:block;background:var(--bg)}
 .pad{max-width:1100px;margin:0 auto;padding:26px 30px 60px}
 .kicker{font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:6px}
 h2.title{font-size:26px;margin:.1em 0 .5em;color:var(--gold-bright)}
@@ -326,6 +328,7 @@ JS = r"""
 const CANON  = JSON.parse(document.getElementById('canon').textContent);
 const ASSETS = JSON.parse(document.getElementById('assets').textContent);
 const SEED   = JSON.parse(document.getElementById('world').textContent);
+window.CANON = CANON;  // 임베드 위키(iframe)가 window.parent.CANON.images 로 이미지 공유
 
 const byId = {}; CANON.characters.forEach(c=>byId[c.id]=c); (CANON.guests||[]).forEach(g=>byId[g.id]=g);
 const modById = {}; ASSETS.modules.forEach(m=>modById[m.id]=m);
@@ -650,6 +653,14 @@ function show(v){
   document.querySelectorAll('#nav .navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   if(v==='status')renderStatus();
   if(v==='equip')renderEquip();
+  if(v==='wiki')ensureWiki();
+}
+let wikiLoaded=false;
+function ensureWiki(){
+  if(wikiLoaded) return;
+  const fr=document.getElementById('wikiFrame');
+  let html=''; try{ html=JSON.parse(document.getElementById('wikidoc').textContent)||''; }catch(e){}
+  if(html){ fr.srcdoc=html; wikiLoaded=true; }  // srcdoc → 부모 origin 상속(이미지 공유 가능)
 }
 function setRunUi(){
   const on=!!W;
@@ -1054,6 +1065,7 @@ function boot(){
   document.getElementById('navPlay').onclick=()=>show('play');
   document.getElementById('navStatus').onclick=()=>show('status');
   document.getElementById('navEquip').onclick=()=>show('equip');
+  document.getElementById('navWiki').onclick=()=>show('wiki');
   document.getElementById('navStart').onclick=()=>{show('start');renderStart();};
   document.getElementById('btnSettings').onclick=openSettings;
   document.getElementById('setClose').onclick=()=>document.getElementById('modal').classList.remove('on');
@@ -1111,6 +1123,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
       <button class="navbtn" id="navPlay" data-view="play">플레이</button>
       <button class="navbtn" id="navStatus" data-view="status">스테이터스</button>
       <button class="navbtn" id="navEquip" data-view="equip">장비/복장</button>
+      <button class="navbtn" id="navWiki" data-view="wiki">위키</button>
     </nav>
     <span id="topspacer"></span>
     <span id="runtag"></span>
@@ -1201,6 +1214,11 @@ HTML_SHELL = r"""<!DOCTYPE html>
         </div>
       </div>
     </section>
+
+    <!-- 위키 (격리 iframe 임베드) -->
+    <section id="view-wiki" class="view">
+      <iframe id="wikiFrame" title="마법소녀 세계관 위키"></iframe>
+    </section>
   </main>
 </div>
 
@@ -1259,13 +1277,35 @@ HTML_SHELL = r"""<!DOCTYPE html>
 <script id="canon" type="application/json">__CANON__</script>
 <script id="world" type="application/json">__WORLD__</script>
 <script id="assets" type="application/json">__ASSETS__</script>
+<script id="wikidoc" type="application/json">__WIKIDOC__</script>
 <script>/*__JS__*/</script>
 </body>
 </html>
 """
 
 
-def page(canon_json, world_json, assets_json):
+# 임베드 위키(iframe)용 플럼 테마 오버라이드 — 위키 세피아 토큰을 플레이 팔레트로 통일.
+# (wiki_template.page(..., extra_css=)로 위키 CSS 뒤에 append → 나중 선언이 이김)
+WIKI_THEME_CSS = r"""
+/* === 플레이 앱 플럼 통일 (임베드 위키) === */
+:root{
+  --bg:#160a22; --bg2:#1e0f30; --panel:#2a0f38; --panel2:#3a1a50;
+  --ink:#ece2f6; --ink-dim:#bcaad6; --ink-faint:#8d7ab0;
+  --gold:#b98cff; --gold-bright:#d9c4ff; --gold-deep:#6e4fa0;
+  --line:#4a2f6b; --line-soft:#33214d;
+  --rep:#d9b65f; --bureau:#7fb6ff; --trainee:#8fd0a8;
+  --shikoku:#d98fc9; --refusal:#e87a8c; --villain:#b98cff; --guest:#a89ac0;
+  --shadow:0 12px 40px rgba(8,2,18,.6);
+}
+body{ background: radial-gradient(120% 80% at 50% -10%, #2e1546 0%, var(--bg) 55%, #0c0518 100%); }
+::-webkit-scrollbar-thumb{ background:#3a2350; border:2px solid var(--bg); }
+.fc-rep{--c:#d9b65f}.fc-bureau{--c:#7fb6ff}.fc-trainee{--c:#8fd0a8}
+.fc-shikoku{--c:#d98fc9}.fc-refusal{--c:#e87a8c}.fc-villain{--c:#b98cff}
+.fc-guest{--c:#a89ac0}.fc-other{--c:#a89ac0}
+"""
+
+
+def page(canon_json, world_json, assets_json, wikidoc_json="null"):
     css = CSS.replace("__NOISE__", NOISE)
     js = JS
     safe = lambda s: s.replace("</", "<\\/")
@@ -1274,5 +1314,6 @@ def page(canon_json, world_json, assets_json):
             .replace("/*__JS__*/", js)
             .replace("__CANON__", safe(canon_json))
             .replace("__WORLD__", safe(world_json))
-            .replace("__ASSETS__", safe(assets_json)))
+            .replace("__ASSETS__", safe(assets_json))
+            .replace("__WIKIDOC__", safe(wikidoc_json)))
     return html
