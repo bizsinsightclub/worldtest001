@@ -82,6 +82,41 @@ h2.title{font-size:26px;margin:.1em 0 .5em;color:var(--gold-bright)}
   color:var(--gold-bright);letter-spacing:.02em;text-shadow:0 2px 22px rgba(150,110,220,.5),0 1px 0 #000}
 .hero-sub{font-family:'Iowan Old Style','Nanum Myeongjo',Palatino,Georgia,serif;font-size:21px;font-style:italic;color:var(--ink-dim);margin-top:8px}
 .pick-card{padding:24px 24px 10px}
+/* '당신' 모드 토글 + 페르소나 패널 + 시작 설정 */
+.youmode{display:flex;gap:8px;justify-content:center;margin:0 0 16px}
+.youmode button{font-family:inherit;cursor:pointer;background:#18092a;border:1px solid var(--line);color:var(--ink-dim);
+  padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600}
+.youmode button.on{background:linear-gradient(180deg,#3a1a50,#2a0f38);border-color:var(--gold-deep);color:var(--gold-bright)}
+.persona-panel{margin:0 0 14px}
+.persona-panel.hide{display:none}
+.psn-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
+.psn-chip{display:inline-flex;align-items:center;gap:7px;background:#18092a;border:1px solid var(--line);color:var(--ink-dim);
+  padding:6px 11px;border-radius:18px;font-size:12.5px;cursor:pointer}
+.psn-chip.on{border-color:var(--gold-deep);color:var(--gold-bright);background:#241138}
+.psn-chip .del{color:var(--ink-faint);font-size:11px;border:0;background:none;cursor:pointer;padding:0 0 0 2px}
+.psn-form{border:1px solid var(--line-soft);border-radius:12px;padding:14px;background:#1b0c2b}
+.psn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.psn-grid .full{grid-column:1/-1}
+.psn-form label{display:block;font-size:11.5px;color:var(--ink-faint);margin:0 0 4px;letter-spacing:.03em}
+.psn-form .req{color:var(--refusal)}
+.psn-form input,.psn-form textarea{width:100%;box-sizing:border-box;background:#120724;border:1px solid var(--line);color:var(--ink);
+  border-radius:9px;padding:9px 11px;font-family:inherit;font-size:13.5px}
+.psn-form textarea{min-height:84px;resize:vertical;line-height:1.55}
+.psn-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.startset{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;margin:18px 0 4px;
+  border-top:1px solid var(--line-soft);padding-top:16px}
+.startset .ss-lab{font-size:12px;color:var(--ink-faint)}
+.startset select{background:#18092a;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:7px 10px;font-family:inherit;font-size:13px}
+.tonebtns{display:inline-flex;gap:6px}
+.tonebtns button{font-family:inherit;cursor:pointer;background:#18092a;border:1px solid var(--line);color:var(--ink-dim);padding:6px 12px;border-radius:8px;font-size:12.5px}
+.tonebtns button.on{border-color:var(--gold-deep);color:var(--gold-bright);background:#241138}
+/* 시작 상황 카드(플레이 로그 상단) */
+.sitcard{max-width:760px;margin:0 auto 18px;border:1px solid var(--gold-deep);border-radius:12px;
+  background:linear-gradient(180deg,#241138,#1b0c2b);padding:12px 16px}
+.sc-h{color:var(--gold-bright);font-size:12px;letter-spacing:.08em;margin-bottom:8px}
+.sc-chips{display:flex;gap:8px;flex-wrap:wrap}
+.scchip{font-size:12px;color:var(--ink-dim);background:#160a26;border:1px solid var(--line-soft);border-radius:14px;padding:4px 10px}
+.scchip b{color:var(--gold);font-weight:600;margin-right:4px}
 /* 호버 툴팁(약어→실제 기술명) */
 .tip{position:relative;cursor:help;border-bottom:1px dotted var(--gold-deep)}
 .tip::after{content:attr(data-tip);position:absolute;left:0;bottom:142%;width:max-content;max-width:280px;white-space:normal;
@@ -186,6 +221,8 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .msg.a .bub h2,.msg.a .bub h3{font-size:17px;color:var(--gold)}
 .msg.a .bub p{margin:.5em 0}
 .msg.sys{text-align:center;color:var(--gold-deep);font-size:12px;letter-spacing:.1em}
+.msg.chg{text-align:center;color:var(--gold-bright);font-size:12px;letter-spacing:.04em;margin:-6px 0 16px}
+.msg.chg::before,.msg.chg::after{content:"";display:inline-block;width:24px;height:1px;background:var(--gold-deep);vertical-align:middle;margin:0 8px;opacity:.6}
 #composer{border-top:1px solid var(--line);padding:14px 30px;background:#1f0f2e}
 #composer .inwrap{max-width:820px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
 #userInput{flex:1;resize:none;min-height:46px;max-height:160px}
@@ -453,6 +490,18 @@ let convo = [];        // [{role:'user'|'assistant', text}]
 const SAVEKEY='playSaves';
 const MEM_KEEP=8;      // 최근 메시지는 verbatim 전송(헤세드/게부라) — 약 4턴 즉시 맥락 보존
 const MEM_BATCH=6;     // 윈도 밖 누적이 이만큼 쌓이면 장기기억으로 요약(호드)
+const PERSONA_KEY='playPersonas';   // 재사용(공용) 페르소나 라이브러리
+const TONES=['일상','임무','위기'];
+function loadPersonas(){ try{ const v=JSON.parse(localStorage.getItem(PERSONA_KEY)||'[]'); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function savePersona(p){ const list=loadPersonas(); if(!p.id)p.id='ps-'+Date.now().toString(36); const i=list.findIndex(x=>x.id===p.id); if(i>=0)list[i]=p; else list.push(p); localStorage.setItem(PERSONA_KEY,JSON.stringify(list)); return p; }
+function deletePersona(id){ localStorage.setItem(PERSONA_KEY, JSON.stringify(loadPersonas().filter(p=>p.id!==id))); }
+function districtKrOf(key){ const d=(ASSETS.districts||[]).find(x=>x.key===key); return d?d.kr:key; }
+// 페르소나 → LLM 주입 텍스트(별명은 미주입 — 플레이어 참고용)
+function personaDossier(ps){
+  const meta=[]; if(ps.age)meta.push(String(ps.age).replace(/세$/,'')+'세'); if(ps.gender)meta.push(ps.gender);
+  return '■ '+(ps.name||'당신')+(meta.length?(' [ '+meta.join(' · ')+' ]'):'')+'\n'+(ps.detail||'');
+}
+function youName(){ return W.meta.persona? (W.meta.persona.name||'당신') : ((byId[W.meta.protagonist]||{}).title||'당신'); }
 
 function loadSaves(){ try{return JSON.parse(localStorage.getItem(SAVEKEY)||'{}');}catch(e){return {};} }
 function writeSaves(o){ localStorage.setItem(SAVEKEY, JSON.stringify(o)); }
@@ -522,10 +571,16 @@ function activeModules(){
   return (W.modules.equipped||[]).map(id=>modById[id]).filter(Boolean)
     .filter(m=>(m.requires||[]).every(evalCond));
 }
+function bandLabelOf(id){ return (bands.find(b=>b.id===id)||{}).label||id; }
 function mutate(deltas){
+  const beforeBand={}; for(const id in W.affinity) beforeBand[id]=W.affinity[id].band;
   for(const d of deltas){ try{ applyDelta(d); W.log.push(Object.assign({turn:W.meta.turn},d)); }catch(e){} }
   recomputeBands();
+  const changes=[];   // 밴드 전이(질적 변화)만 — 토스트·메모리용
+  for(const id in W.affinity){ const ob=beforeBand[id], nb=W.affinity[id].band; const c=byId[id];
+    if(c && ob && ob!==nb) changes.push({id, title:c.title, from:bandLabelOf(ob), to:bandLabelOf(nb)}); }
   W.meta.turn++;
+  return changes;
 }
 function issueMemories(){
   const got=[];
@@ -621,6 +676,7 @@ function assembleContext(){
   seg('binah','\n[등장인물 캐논] 아래 프로필의 말투·성격·전투 스타일·관계를 충실히 반영하되, 체크리스트처럼 나열하지 말고 장면에 자연스럽게 녹여라.',1);
   const p=byId[W.meta.protagonist];
   if(p){ seg('tiphereth','\n[주인공]\n'+charDossier(p),1); }       // dossier 원문 verbatim — 캐시 대상
+  else if(W.meta.persona){ seg('tiphereth','\n[당신(시점 인물)]\n'+personaDossier(W.meta.persona),1); }
   const compIds=(W.meta.companions||[]).filter(id=>byId[id]);
   if(compIds.length){ seg('keter','\n[동행 인물]\n'+compIds.map(id=>charDossier(byId[id])).join('\n\n'),1); }
   // 코어 로어(세계 규칙 근간) — 회차 불변 → 캐시 블록(stable)에 항상 주입
@@ -636,6 +692,7 @@ function assembleContext(){
   if(af.length){ seg('hod','\n[인물별 현재 태도(호감도)]\n'+af.join('\n')); }
   // 장기 기억(요약된 먼 기억) — 호드. 최근 대화는 messages(헤세드/게부라)로 별도 전송.
   if(W.summary&&W.summary.trim()){ seg('hod','\n[장기 기억 — 지난 전개 요약]\n'+W.summary.trim()); }
+  if(W.changeLog&&W.changeLog.length){ seg('hod','\n[최근 관계 변화]\n'+W.changeLog.slice(-5).map(x=>'- '+x.note).join('\n')); }
   // 활성 모듈 서사 지시
   const md=[]; activeModules().forEach(m=>(m.effects.narrative||[]).forEach(n=>md.push('- '+n)));
   if(md.length){ seg('yesod','\n[현재 장착/효과]\n'+md.join('\n')); }
@@ -646,12 +703,15 @@ function assembleContext(){
   const fl=[];
   (ASSETS.flags||[]).forEach(f=>{ const v=W.flags[f.key]; if(v===true)fl.push(f.label); else if(typeof v==='number'&&v>0)fl.push(f.label+'='+v); });
   if(fl.length) seg('netzach','\n[세계 상태] '+fl.join(' · '));
+  if(W.meta.start&&W.meta.start.districtKey){ const dk=W.meta.start.districtKey; const t=(W.territory||{})[dk]||{};
+    seg('netzach','\n[현재 위치] '+districtKrOf(dk)+(t.sealed?' (봉인 지역)':'')+(t.stability!=null?(' · 안정도 '+t.stability):'')+(W.meta.start.tone?(' · 분위기 '+W.meta.start.tone):'')); }
   // 상태 델타 프로토콜 (가변부 뒤 — 순서 보존, 작아서 캐시 제외 영향 미미)
-  seg('malkuth','\n[중요] 장면 서술 뒤에, 이번 장면으로 바뀐 상태가 있으면 아래 형식의 코드펜스를 정확히 한 번 덧붙여라(없으면 생략):');
+  const ex=(W.meta.companions[0]||'char-13');
+  seg('malkuth','\n[상태 반영 — 필수] 호감·관계·세계 상태가 조금이라도 움직였다면 그 변화를 먼저 *장면 안에서* 인물의 태도·반응으로 드러내라(수치는 노출 금지). 그리고 응답 맨 끝에 아래 코드펜스를 **항상 정확히 한 번** 붙여라 — 바뀐 게 없으면 빈 배열 `[]`:');
   seg('malkuth','```state');
-  seg('malkuth','[{"path":"affinity.'+(W.meta.companions[0]||'char-13')+'.value","op":"inc","value":5}]');
+  seg('malkuth','[{"path":"affinity.'+ex+'.value","op":"inc","value":5},{"path":"affinity.'+ex+'.axes.trust","op":"inc","value":3}]');
   seg('malkuth','```');
-  seg('malkuth','허용 path: affinity.<charId>.value(-100~100), affinity.<charId>.axes.<trust|respect|romance>, flags.<키>, territory.<지구>.stability. op: set|inc|dec|toggle. 코드펜스는 독자에게 보이지 않는다.');
+  seg('malkuth','허용 path: affinity.<charId>.value(-100~100), affinity.<charId>.axes.<trust|respect|romance>, flags.<키>(토글/증감), territory.<지구>.stability. op: set|inc|dec|toggle. 작은 호의·신뢰·반감도 +3~8로 반영하라. 코드펜스는 독자에게 보이지 않으며, ```json 등 다른 라벨을 쓰지 마라.');
   const stable=STA.join('\n'), volatile=VOL.join('\n');
   return {text: stable+'\n'+volatile, stable: stable, volatile: volatile};
 }
@@ -668,16 +728,25 @@ const SEPHIROT = [
   {key:'malkuth', name:'말쿠트', sub:'왕국', src:'생성 가이던스 — 상태 델타', color:'#9a8eb8', why:'모든 연산이 한 줄의 텍스트로 물질화되는 현실. 최종 매듭.'},
 ];
 
-/* 새 회차 시작 */
-function newRun(protagId, companionIds, memoryIds){
+/* 시작 지역 자동 도출(페르소나는 캐논 지역 없음 → 동행 지역, 없으면 Tokyo) */
+function deriveStartDistrict(protagId, comps){
+  const cand=[protagId].concat(comps||[]).map(id=>byId[id]).filter(Boolean).map(c=>c.districtNorm).filter(Boolean);
+  return cand[0]||'Tokyo';
+}
+/* 새 회차 시작. opts={persona, startDistrict, tone}. persona 모드면 protagId=null. */
+function newRun(protagId, companionIds, memoryIds, opts){
+  opts=opts||{};
   W = clone(SEED);
   W.meta.saveId = 'run-'+Date.now().toString(36);
-  W.meta.protagonist = protagId;
+  W.meta.protagonist = protagId||null;
+  W.meta.persona = opts.persona||null;          // 커스텀 페르소나(없으면 캐논 주인공)
   W.meta.companions = companionIds.slice();
   W.meta.ngPlusCount = memoryIds.length?1:0;
-  // 호감도 시드: 주인공의 캐논 관계
+  W.meta.start = {districtKey: opts.startDistrict || deriveStartDistrict(protagId, companionIds), tone: opts.tone || '일상'};
+  W.meta.prologueDone = false;
+  // 호감도 시드: 캐논 주인공의 관계(페르소나 모드면 생략)
   const p=byId[protagId];
-  (p.relationships||[]).forEach(r=>{ if(r.targetId && byId[r.targetId]){
+  if(p)(p.relationships||[]).forEach(r=>{ if(r.targetId && byId[r.targetId]){
     const base=ASSETS.seedByRelType[r.type]; if(base!=null){ ensureAffinity(r.targetId).value=base; } }});
   companionIds.forEach(id=>{ const a=ensureAffinity(id); if(a.value<20)a.value=35; });
   recomputeBands();
@@ -694,6 +763,7 @@ function newRun(protagId, companionIds, memoryIds){
   W.recap=[];
   W.summary='';        // 장기기억 누적 요약(호드)
   W.summaryUpto=0;     // 요약 완료된 convo 선두 메시지 수
+  W.changeLog=[];      // 밴드 전이 등 관계 변화 이벤트(호드 주입·메모리)
   W.usage={runIn:0,runOut:0,runKRW:0,turns:0};
   convo=[];
   saveRun();
@@ -701,7 +771,11 @@ function newRun(protagId, companionIds, memoryIds){
 function saveRun(){ if(!W)return; const s=loadSaves(); s[W.meta.saveId]={world:W, convo:convo, ts:Date.now(),
   name:(byId[W.meta.protagonist]||{}).title||'?'}; writeSaves(s); }
 function loadRun(id){ const s=loadSaves(); if(!s[id])return false; W=s[id].world; convo=s[id].convo||[];
-  if(W.summary==null)W.summary=''; if(W.summaryUpto==null)W.summaryUpto=0; return true; }
+  if(W.summary==null)W.summary=''; if(W.summaryUpto==null)W.summaryUpto=0; if(!W.changeLog)W.changeLog=[];
+  if(W.meta.persona===undefined)W.meta.persona=null;
+  if(!W.meta.start)W.meta.start={districtKey:deriveStartDistrict(W.meta.protagonist,W.meta.companions),tone:'일상'};
+  if(W.meta.prologueDone==null)W.meta.prologueDone=true;   // 옛 세이브: 프롤로그 이미 지난 것으로 간주
+  return true; }
 
 /* ============ LLM 어댑터 (BYO 키, 스트리밍) ============ */
 async function callLLM(system, history, onTok){
@@ -724,7 +798,7 @@ async function callLLM(system, history, onTok){
       sysBody=[{type:'text',text:sysStable,cache_control:{type:'ephemeral'}}];
       if(sysVol&&sysVol.trim()) sysBody.push({type:'text',text:sysVol});
     } else { sysBody=sysText; }
-    body={model:API.model,max_tokens:2048,system:sysBody,stream:true,messages:history.map(m=>({role:m.role,content:m.text}))};
+    body={model:API.model,max_tokens:4096,system:sysBody,stream:true,messages:history.map(m=>({role:m.role,content:m.text}))};
   } else if(API.provider==='gemini'){
     url=ep+'/'+API.model+':streamGenerateContent?alt=sse&key='+encodeURIComponent(API.key);
     body={systemInstruction:{parts:[{text:sysText}]},
@@ -787,10 +861,23 @@ async function mockLLM(system,history,onTok){
   for(const p of parts){ for(let i=0;i<p.length;i+=3){ onTok(p.slice(i,i+3)); await new Promise(r=>setTimeout(r,8)); } }
 }
 function stripState(t){ const i=t.indexOf('```state'); return i>=0?t.slice(0,i).trimEnd():t; }
+function parseDeltaArray(body){   // 절단(닫는 ] 누락) 보정 포함
+  body=(body||'').trim(); if(!body) return [];
+  try{ const j=JSON.parse(body); if(Array.isArray(j))return j; }catch(e){}
+  const cut=body.lastIndexOf(']');           // 절단 시 마지막 ]까지로 보정
+  if(cut>=0){ try{ const j=JSON.parse(body.slice(0,cut+1)); if(Array.isArray(j))return j; }catch(e){} }
+  return [];
+}
 function extractState(t){
-  const m=t.match(/```state\s*([\s\S]*?)```/);
-  let deltas=[]; if(m){ try{ const j=JSON.parse(m[1].trim()); if(Array.isArray(j))deltas=j; }catch(e){} }
-  return {clean:t.replace(/```state[\s\S]*?```/,'').trimEnd(), deltas};
+  // ```state``` 우선, 없으면 델타형(path/op 포함) ```json``` 도 수용. 닫는 펜스 없어도(절단) 매칭.
+  let deltas=[], m=t.match(/```state\s*([\s\S]*?)(?:```|$)/i);
+  if(!m){ const jm=t.match(/```json\s*([\s\S]*?)(?:```|$)/i); if(jm&&/["']path["']/.test(jm[1])&&/["']op["']/.test(jm[1])) m=jm; }
+  if(m) deltas=parseDeltaArray(m[1]);
+  deltas=deltas.filter(d=>d&&typeof d.path==='string'&&typeof d.op==='string');   // 델타 형태만
+  // 화면·메모리 노출 방어: state 펜스(닫힘/절단 무관) 제거 + 델타형 json 펜스 제거
+  let clean=t.replace(/```state[\s\S]*?(?:```|$)/i,'');
+  clean=clean.replace(/```json\s*([\s\S]*?)(?:```|$)/i, (full,b)=> (/["']path["']/.test(b)&&/["']op["']/.test(b))?'':full);
+  return {clean:clean.trim(), deltas};
 }
 
 /* ============ 라우팅 ============ */
@@ -814,23 +901,72 @@ function setRunUi(){
   const on=!!W;
   // 회차가 결정되기 전엔 플레이/스테이터스/장비 탭을 숨긴다(시작 화면이 먼저).
   ['navPlay','navStatus','navEquip'].forEach(id=>{const b=document.getElementById(id); b.disabled=!on; b.style.display=on?'':'none';});
-  document.getElementById('runtag').textContent = on?('회차 · '+((byId[W.meta.protagonist]||{}).title||'')):'';
+  document.getElementById('runtag').textContent = on?('회차 · '+youName()):'';
 }
 
 /* ============ 시작 화면 ============ */
 let pickP=null, pickC=[], pickM=[], curFaction=null;
+let youMode='canon', pickPersona=null, startDistrict=null, startTone='일상';   // 시작 경험 v2
 const FAC_ORDER=['rep','bureau','trainee','shikoku','refusal','villain','guest','other'];
 const pool=playable.concat(CANON.guests||[]);          // 선택 가능 인물 풀
 const facList=f=>pool.filter(c=>c.faction===f);
 const factionsPresent=()=>FAC_ORDER.filter(f=>facList(f).length);
 
-function renderStart(){ renderSlots(); renderTabs(); renderHand(); renderMem(); renderSaves(); updateStartBtn(); }
-function updateStartBtn(){ document.getElementById('startBtn').disabled=!pickP; }
+function renderStart(){ renderYouMode(); renderPersonaPanel(); renderSlots(); renderTabs(); renderHand(); renderStartSet(); renderMem(); renderSaves(); updateStartBtn(); }
+function updateStartBtn(){
+  const ok = youMode==='canon' ? !!pickP : !!(pickPersona&&pickPersona.name&&pickPersona.detail);
+  document.getElementById('startBtn').disabled=!ok;
+}
+function setYouMode(m){ if(youMode===m)return; youMode=m; renderStart(); }
+function renderYouMode(){
+  document.querySelectorAll('#youMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===youMode));
+  const h=document.getElementById('pickHint');
+  if(h) h.textContent = youMode==='persona'
+    ? '페르소나를 만들거나 고른 뒤, 팩션에서 동행(최대 3)을 선택하세요.'
+    : '팩션을 고르고 카드를 누르면 위 슬롯(주인공 → 동행)에 들어갑니다. 슬롯의 ✕ 또는 카드를 다시 눌러 해제.';
+}
+function _psnVal(id){ const x=document.getElementById(id); return x?x.value:''; }
+function _psnGrab(){ return {id:(pickPersona&&pickPersona.id)||null, name:_psnVal('psnName').trim(), alias:_psnVal('psnAlias').trim(),
+  age:_psnVal('psnAge').trim(), gender:_psnVal('psnGender').trim(), detail:_psnVal('psnDetail').trim()}; }
+function renderPersonaPanel(){
+  const el=document.getElementById('personaPanel'); if(!el) return;
+  if(youMode!=='persona'){ el.className='persona-panel hide'; el.innerHTML=''; return; }
+  el.className='persona-panel';
+  const list=loadPersonas(); const d=pickPersona||{};
+  const chips = list.length ? list.map(p=>'<span class="psn-chip'+(pickPersona&&pickPersona.id===p.id?' on':'')+'" data-id="'+p.id+'">'+esc(p.name)+'<button class="del" data-del="'+p.id+'" title="삭제">✕</button></span>').join('')
+    : '<span class="muted" style="font-size:12px">저장된 페르소나 없음 — 아래에서 만들어 보세요.</span>';
+  el.innerHTML='<div class="psn-chips">'+chips+'</div><div class="psn-form"><div class="psn-grid">'+
+    '<div><label>이름 <span class="req">*</span></label><input id="psnName" maxlength="40" value="'+esc(d.name||'')+'" placeholder="예: 하와"></div>'+
+    '<div><label>별명 <span class="muted" style="font-size:10px">(AI 미인식·표시용)</span></label><input id="psnAlias" maxlength="40" value="'+esc(d.alias||'')+'"></div>'+
+    '<div><label>나이</label><input id="psnAge" maxlength="12" value="'+esc(d.age||'')+'" placeholder="예: 20"></div>'+
+    '<div><label>성별</label><input id="psnGender" maxlength="12" value="'+esc(d.gender||'')+'" placeholder="예: 여성"></div>'+
+    '<div class="full"><label>상세 정보 <span class="req">*</span></label><textarea id="psnDetail" maxlength="2000" placeholder="성격·배경·동기·특징을 자유롭게 작성해 주세요.">'+esc(d.detail||'')+'</textarea></div>'+
+    '</div><div class="psn-actions"><button type="button" class="btn" id="psnUseOnce">이 작품용으로 적용</button>'+
+    '<button type="button" class="btn ghost" id="psnSaveShared">공용으로 저장·적용</button></div></div>';
+  el.querySelectorAll('.psn-chip').forEach(c=>c.onclick=e=>{ if(e.target.dataset.del)return; const p=loadPersonas().find(x=>x.id===c.dataset.id); if(p){ pickPersona=Object.assign({},p); renderPersonaPanel(); renderSlots(); updateStartBtn(); } });
+  el.querySelectorAll('.psn-chip .del').forEach(b=>b.onclick=e=>{ e.stopPropagation(); deletePersona(b.dataset.del); if(pickPersona&&pickPersona.id===b.dataset.del)pickPersona=null; renderPersonaPanel(); renderSlots(); updateStartBtn(); });
+  const commit=(save)=>{ const p=_psnGrab(); if(!p.name||!p.detail){ alert('이름과 상세 정보는 필수입니다.'); return; } pickPersona = save? Object.assign({},savePersona(p)) : (p.id=null,p); renderPersonaPanel(); renderSlots(); updateStartBtn(); };
+  document.getElementById('psnUseOnce').onclick=()=>commit(false);
+  document.getElementById('psnSaveShared').onclick=()=>commit(true);
+}
+function renderStartSet(){
+  const el=document.getElementById('startSet'); if(!el) return;
+  if(!startDistrict) startDistrict = deriveStartDistrict(youMode==='canon'?pickP:null, pickC);
+  const opts=(ASSETS.districts||[]).map(d=>'<option value="'+d.key+'"'+(d.key===startDistrict?' selected':'')+'>'+esc(d.kr)+'</option>').join('');
+  const tones=TONES.map(t=>'<button type="button" data-t="'+t+'" class="'+(t===startTone?'on':'')+'">'+t+'</button>').join('');
+  el.innerHTML='<span class="ss-lab">시작 지역</span><select id="ssDistrict">'+opts+'</select>'+
+    '<span class="ss-lab">분위기</span><span class="tonebtns" id="ssTone">'+tones+'</span>';
+  document.getElementById('ssDistrict').onchange=function(){ startDistrict=this.value; };
+  el.querySelectorAll('#ssTone button').forEach(b=>b.onclick=()=>{ startTone=b.dataset.t; renderStartSet(); });
+}
 
 function renderSlots(){
-  const slots=[{role:'p',id:pickP,label:'주인공'},
+  const slots=[ youMode==='persona' ? {role:'p',persona:true,label:'내 페르소나'} : {role:'p',id:pickP,label:'주인공'},
     {role:'c',id:pickC[0],label:'동행 1'},{role:'c',id:pickC[1],label:'동행 2'},{role:'c',id:pickC[2],label:'동행 3'}];
   document.getElementById('pickSlots').innerHTML=slots.map(s=>{
+    if(s.persona){ return (pickPersona&&pickPersona.name)
+      ? '<div class="pslot p filled persona"><span class="nm">✦ '+esc(pickPersona.name)+'</span></div>'
+      : '<div class="pslot p"><span class="slab">'+s.label+'</span></div>'; }
     if(!s.id) return '<div class="pslot '+s.role+'"><span class="slab">'+s.label+'</span></div>';
     const c=byId[s.id]; const src=img(c.imgPrefix,'d');
     return '<div class="pslot '+s.role+' filled">'+(src?'<img src="'+src+'">':'')+
@@ -892,11 +1028,17 @@ function renderSaves(){
   sl.querySelectorAll('.item').forEach(el=>el.onclick=()=>{ if(loadRun(el.dataset.k)){ setRunUi(); renderLog(); show('play'); } });
 }
 function selectChar(id){
-  if(pickP===id){ pickP=null; }
-  else if(pickC.includes(id)){ pickC=pickC.filter(x=>x!==id); }
-  else if(!pickP){ pickP=id; }
-  else if(pickC.length<3){ pickC.push(id); }
-  else { return; }   // 슬롯 가득
+  if(youMode==='persona'){               // 페르소나 모드: 핸드 선택은 동행만
+    if(pickC.includes(id)) pickC=pickC.filter(x=>x!==id);
+    else if(pickC.length<3) pickC.push(id);
+    else return;
+  } else {
+    if(pickP===id){ pickP=null; }
+    else if(pickC.includes(id)){ pickC=pickC.filter(x=>x!==id); }
+    else if(!pickP){ pickP=id; }
+    else if(pickC.length<3){ pickC.push(id); }
+    else { return; }   // 슬롯 가득
+  }
   renderSlots();
   // 핸드의 taken 상태만 갱신(재빌드 없이 fanin 깜빡임 방지)
   document.querySelectorAll('#pickHand .fcard').forEach(d=>{
@@ -911,10 +1053,11 @@ function selectChar(id){
 
 /* ============ 플레이 ============ */
 function renderLog(){
-  const root=document.getElementById('log'); let html='';
-  if(!convo.length){ const p=byId[W.meta.protagonist];
-    html='<div class="msg sys">— '+esc((p||{}).title||'')+'의 이야기가 시작된다 —</div>'+
-      '<div class="msg a"><div class="bub">'+mdRender('당신의 첫 행동이나 대사를 입력해 장면을 시작하세요. (예: "사무소 문을 열고 들어선다")')+'</div></div>';
+  const root=document.getElementById('log'); let html=situationCardHtml();
+  if(!convo.length){
+    html+='<div class="msg sys">— '+esc(youName())+'의 이야기가 시작된다 —</div>';
+    // 프롤로그가 이미 생성됐는데 비어있는 예외 상황에만 안내 노출(생성 예정이면 startPrologue가 채움)
+    if(W.meta.prologueDone) html+='<div class="msg a"><div class="bub">'+mdRender('당신의 첫 행동이나 대사를 입력해 장면을 시작하세요. (예: "사무소 문을 열고 들어선다")')+'</div></div>';
   } else {
     convo.forEach(m=>{ html+='<div class="msg '+(m.role==='user'?'u':'a')+'"><div class="bub">'+
       (m.role==='user'?esc(m.text):mdRender(m.text))+'</div></div>'; });
@@ -955,16 +1098,114 @@ async function turn(text){
     usage = await callLLM(sys, histForCall, t=>{ acc+=t; root.scrollTop=root.scrollHeight; });
   }catch(e){ bub.innerHTML='<span style="color:#e0a35c">[호출 오류] '+esc(e.message)+'</span>'; busy=false;
     document.getElementById('sendBtn').disabled=false; return; }
-  const {clean,deltas}=extractState(acc);
+  let {clean,deltas}=extractState(acc);
   bub.classList.add('reveal'); bub.innerHTML=mdRender(clean); root.scrollTop=root.scrollHeight;
   convo.push({role:'assistant',text:clean});
   const rec=firstSentence(clean);
   if(rec){ W.recap=W.recap||[]; W.recap.push(rec); if(W.recap.length>8) W.recap.shift(); }
-  if(deltas.length){ mutate(deltas); renderRail(); }
+  // 하이브리드: 인라인 델타가 비면 싼 모델 구조화 추출로 폴백(mock/키없음 제외)
+  if(!deltas.length && API.provider!=='mock'){
+    try{ const fb=await extractDeltasFallback(text, clean); if(fb&&fb.length) deltas=fb; }catch(e){}
+  }
+  if(deltas.length){ const changes=mutate(deltas); renderRail(); flashChanges(changes); recordChanges(changes); }
   accountTurn(segSnap, histForCall, acc, usage);
   saveRun();
   busy=false; document.getElementById('sendBtn').disabled=false;
   maybeSummarize();   // 윈도 밖 누적 시 장기기억 요약(비동기, 비차단)
+}
+/* 하이브리드 폴백: 서사 콜과 분리해 싼 모델로 상태 델타만 구조화 추출 (인라인 누락 시에만) */
+async function extractDeltasFallback(userText, sceneText){
+  const key=(API.keys&&API.keys[API.provider])||API.key||''; if(!key) return [];
+  const model=CHEAP_MODEL[API.provider]||API.model;
+  const ids=[].concat(W.meta.companions||[]); for(const id in W.affinity) if(!ids.includes(id))ids.push(id);
+  const roster=ids.map(id=>{const c=byId[id]; if(!c)return null; const a=W.affinity[id]||{}; return c.title+'('+id+', '+(a.value!=null?a.value:0)+')';}).filter(Boolean).join(', ');
+  const sys='[상태 변화 추출] 아래 장면에서 *실제로 일어난* 관계·세계 상태 변화만 JSON 배열로 출력하라. 추측·과장 금지, 변화 없으면 [].\n'+
+    '허용 path: affinity.<charId>.value(-100~100 증감), affinity.<charId>.axes.<trust|respect|romance>, flags.<키>, territory.<지구>.stability. op: set|inc|dec|toggle.\n'+
+    '인물: '+roster+'\n오직 JSON 배열만 출력(코드펜스·설명 금지). 예: [{"path":"affinity.char-13.value","op":"inc","value":5}]';
+  const userMsg='[플레이어 입력]\n'+userText+'\n\n[장면]\n'+(sceneText||'').slice(0,1800);
+  const ep=API.endpoint||PRESETS[API.provider].ep;
+  let url=ep, headers={'Content-Type':'application/json'}, body;
+  if(API.provider==='openai'){ headers['Authorization']='Bearer '+key;
+    body={model,messages:[{role:'system',content:sys},{role:'user',content:userMsg}],max_tokens:300}; }
+  else if(API.provider==='anthropic'){ headers['x-api-key']=key; headers['anthropic-version']='2023-06-01'; headers['anthropic-dangerous-direct-browser-access']='true';
+    body={model,max_tokens:300,system:sys,messages:[{role:'user',content:userMsg}]}; }
+  else if(API.provider==='gemini'){ url=ep+'/'+model+':generateContent?key='+encodeURIComponent(key);
+    body={systemInstruction:{parts:[{text:sys}]},contents:[{role:'user',parts:[{text:userMsg}]}]}; }
+  else return [];
+  const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)}); if(!res.ok) return [];
+  const j=await res.json(); let text='';
+  if(API.provider==='openai') text=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
+  else if(API.provider==='anthropic') text=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  else if(API.provider==='gemini'){ try{ text=j.candidates[0].content.parts.map(p=>p.text||'').join(''); }catch(e){} }
+  // 비용 회계
+  let inT=0,outT=0;
+  if(j.usage){ inT=j.usage.input_tokens||j.usage.prompt_tokens||0; outT=j.usage.output_tokens||j.usage.completion_tokens||0; }
+  else if(j.usageMetadata){ inT=j.usageMetadata.promptTokenCount||0; outT=j.usageMetadata.candidatesTokenCount||0; }
+  if((inT||outT)&&W.usage){ const sc=cost(inT,outT,model); W.usage.runIn+=inT; W.usage.runOut+=outT; W.usage.runKRW+=sc; }
+  const arr=parseDeltaArray((text||'').replace(/```json|```/g,'').trim());
+  return arr.filter(d=>d&&typeof d.path==='string'&&typeof d.op==='string');
+}
+/* 밴드 전이 가시화(채팅 로그에 칩) + 장기기억 기록 */
+function flashChanges(changes){
+  if(!changes||!changes.length) return;
+  const root=document.getElementById('log'); if(!root) return;
+  changes.forEach(ch=>{ const d=document.createElement('div'); d.className='msg chg';
+    d.textContent='◈ '+ch.title+' — '+ch.from+' → '+ch.to; root.appendChild(d); });
+  root.scrollTop=root.scrollHeight;
+}
+function recordChanges(changes){
+  if(!changes||!changes.length||!W) return;
+  W.changeLog=W.changeLog||[];
+  changes.forEach(ch=>W.changeLog.push({turn:W.meta.turn, note:ch.title+'와의 관계가 '+ch.from+'에서 '+ch.to+'(으)로 바뀌었다'}));
+  if(W.changeLog.length>12) W.changeLog=W.changeLog.slice(-12);
+}
+/* ============ 상황 카드 + 프롤로그 ============ */
+function situationCardText(){
+  const dk=W.meta.start.districtKey, t=(W.territory||{})[dk]||{};
+  const ctrl=(t.controller&&byId[t.controller])?byId[t.controller].title:null;
+  const comps=(W.meta.companions||[]).map(id=>(byId[id]||{}).title).filter(Boolean);
+  const L=['시점 인물: '+youName(),
+    '장소: '+districtKrOf(dk)+(t.sealed?' (봉인 지역)':'')+(ctrl?(' · 지역 대표 '+ctrl):'')+(t.stability!=null?(' · 안정도 '+t.stability):''),
+    '분위기: '+(W.meta.start.tone||'일상')];
+  if(comps.length) L.push('동행: '+comps.join(', '));
+  return L.join('\n');
+}
+function situationCardHtml(){
+  if(!W||!W.meta.start) return '';
+  const dk=W.meta.start.districtKey, t=(W.territory||{})[dk]||{};
+  const ctrl=(t.controller&&byId[t.controller])?byId[t.controller].title:null;
+  const comps=(W.meta.companions||[]).map(id=>(byId[id]||{}).title).filter(Boolean);
+  const chip=(l,v)=>'<span class="scchip"><b>'+esc(l)+'</b> '+esc(v)+'</span>';
+  let c=chip('시점',youName())+chip('장소',districtKrOf(dk)+(t.sealed?' (봉인)':''))+chip('분위기',W.meta.start.tone||'일상');
+  if(ctrl)c+=chip('지역대표',ctrl); if(comps.length)c+=chip('동행',comps.join(', '));
+  return '<div class="sitcard"><div class="sc-h">◈ 시작 상황</div><div class="sc-chips">'+c+'</div></div>';
+}
+function fallbackPrologue(){
+  const who=youName(); const place=districtKrOf(W.meta.start.districtKey);
+  const comps=(W.meta.companions||[]).map(id=>(byId[id]||{}).title).filter(Boolean);
+  let s=place+'의 공기가 낮게 가라앉아 있다. '+who+'은(는) 익숙하면서도 낯선 거리 한복판에 서서, 멀리서 번지는 마나의 잔향에 가만히 귀를 기울인다.\n\n';
+  s+= comps.length ? (comps[0]+'이(가) 곁에서 발걸음을 맞추며 곁눈질로 당신을 살핀다. "…그래서, 이제 어디로 갈 거야?"\n\n')
+                   : '괴이의 기척이 옅게 스민 골목 끝에서, 무언가가 당신의 선택을 기다리는 듯하다.\n\n';
+  return s+'— 당신의 첫 행동이나 대사를 입력해 장면을 이어가세요.';
+}
+async function startPrologue(){
+  if(!W||W.meta.prologueDone||convo.length) return;
+  const root=document.getElementById('log'); if(!root) return;
+  const bub=appendAssistant(); let acc='';
+  const sys=assembleContext(); const segSnap=Object.assign({},PROMPT_SEGS);
+  const guide='\n\n[프롤로그 작성] 지금은 이 회차의 첫 장면이다. 위 설정과 아래 시작 상황을 바탕으로 "당신"('+youName()+') 시점에서 장면을 연다. 인물·지역·분위기를 설명하지 말고 장면으로 보여줘라(2~4문단). 메타 질문·선택지 나열로 닫지 말고 여운으로 멈춰 플레이어가 이어 쓰게 둬라. 이 첫 장면에서는 상태 델타(```state)를 출력하지 마라.\n[시작 상황]\n'+situationCardText();
+  const sysForCall={stable:sys.stable, volatile:(sys.volatile||'')+guide, text:(sys.text||'')+guide};
+  let usage=null;
+  if(API.provider==='mock'){ acc=fallbackPrologue(); }
+  else { try{ usage=await callLLM(sysForCall,[{role:'user',text:'(이 회차의 첫 장면을 열어 주세요.)'}],t=>{acc+=t; root.scrollTop=root.scrollHeight;}); }
+    catch(e){ acc=fallbackPrologue(); } }
+  const {clean}=extractState(acc); const body=(clean&&clean.trim())||fallbackPrologue();
+  bub.classList.add('reveal'); bub.innerHTML=mdRender(body); root.scrollTop=root.scrollHeight;
+  convo.push({role:'assistant',text:body});
+  W.meta.prologueDone=true;
+  const rec=firstSentence(body); if(rec){ W.recap=W.recap||[]; W.recap.push(rec); }
+  if(usage) accountTurn(segSnap, [], body, usage);
+  saveRun();
 }
 /* ============ 장기기억(호드): 슬라이딩 윈도 밖 대화를 싼 모델로 요약 ============ */
 let summarizing=false;
@@ -1367,9 +1608,16 @@ function boot(){
   document.getElementById('handNext').onclick=()=>pageScroll(1);
   if(hw) hw.addEventListener('scroll',updateHandNav,{passive:true});
   window.addEventListener('resize',updateHandNav);
+  document.querySelectorAll('#youMode button').forEach(b=>b.onclick=()=>setYouMode(b.dataset.m));
   document.getElementById('startBtn').onclick=()=>{
-    if(!pickP){alert('주인공을 선택하세요.');return;}
-    newRun(pickP, pickC, pickM); setRunUi(); renderLog(); show('play');
+    if(youMode==='persona'){
+      if(!pickPersona||!pickPersona.name||!pickPersona.detail){alert('페르소나의 이름과 상세 정보를 입력하세요.');return;}
+      newRun(null, pickC, pickM, {persona:pickPersona, startDistrict, tone:startTone});
+    } else {
+      if(!pickP){alert('주인공을 선택하세요.');return;}
+      newRun(pickP, pickC, pickM, {startDistrict, tone:startTone});
+    }
+    setRunUi(); renderLog(); show('play'); startPrologue();
   };
   document.getElementById('sendBtn').onclick=()=>{ const i=document.getElementById('userInput');
     const v=i.value; i.value=''; turn(v); };
@@ -1422,15 +1670,21 @@ HTML_SHELL = r"""<!DOCTYPE html>
           <div class="hero-sub">: 마법소녀 레코드</div>
         </div>
         <div class="card2 pick-card">
-          <h3 class="center">인물 선택 — 주인공 1명, 동행 최대 3명</h3>
+          <h3 class="center">‘당신’과 동행 구성</h3>
+          <div class="youmode" id="youMode">
+            <button type="button" data-m="persona">✦ 내 페르소나</button>
+            <button type="button" data-m="canon">캐논 인물로 플레이</button>
+          </div>
+          <div id="personaPanel" class="persona-panel"></div>
           <div class="pickslots" id="pickSlots"></div>
           <div class="ftabs" id="factionTabs"></div>
-          <p class="muted center" style="font-size:12px;margin:10px 0 0">팩션을 고르고 카드를 누르면 위 슬롯(주인공 → 동행)에 들어갑니다. 슬롯의 ✕ 또는 카드를 다시 눌러 해제.</p>
+          <p class="muted center" id="pickHint" style="font-size:12px;margin:10px 0 0"></p>
           <div class="handnav">
             <button class="harrow" id="handPrev" title="이전">‹</button>
             <div class="handwrap"><div class="hand" id="pickHand"></div></div>
             <button class="harrow" id="handNext" title="다음">›</button>
           </div>
+          <div class="startset" id="startSet"></div>
         </div>
         <div class="card2">
           <h3>세계의 기억 장착 (NG+)</h3>
