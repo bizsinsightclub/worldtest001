@@ -1,0 +1,33 @@
+[
+  {
+    "id": "mod-memory-shikoku-truth", "type": "memory", "title": "세계의 기억 · 시고쿠의 진실",
+    "desc": "봉인된 시고쿠 너머의 진상을 한 번 목격한 자만이 지니는 기억.",
+    "requires": [{ "path": "meta.ngPlusCount", "op": "gte", "value": 1 }],
+    "effects": {
+      "narrative": ["주인공은 시고쿠 봉인 너머의 진실을 어렴풋이 기억한다. 타마모와 관련된 인물 앞에서 남다른 직감을 보이며, 일부 인물은 그 통찰을 눈치챈다."],
+      "state": [],
+      "unlocks": ["gekko_karen_unlocked"]
+    }
+  },
+  {
+    "id": "mod-memory-gekko-rest", "type": "memory", "title": "세계의 기억 · 월광가련의 안식",
+    "desc": "월광가련에서 보낸 하루의 평온을 몸이 기억한다.",
+    "requires": [{ "path": "meta.ngPlusCount", "op": "gte", "value": 1 }],
+    "effects": {
+      "narrative": ["주인공은 마나가 안정되어 있다. 지친 동료를 다독이는 데 능하며, 휴식과 회복의 가치를 안다."],
+      "state": [],
+      "unlocks": []
+    }
+  },
+  {
+    "id": "mod-talisman-yoki", "type": "item", "title": "요기 봉인 부적",
+    "desc": "요기(妖氣)의 침식을 잠시 늦추는 호시모리 공방제 부적.",
+    "slot": "accessory",
+    "requires": [],
+    "effects": {
+      "narrative": ["주인공은 요기 봉인 부적을 지니고 있다. 괴이의 요기에 노출되어도 한동안 이성을 유지하며, 시고쿠 권속 앞에서도 흔들리지 않는다."],
+      "state": [],
+      "unlocks": []
+    }
+  }
+]

@@ -45,4 +45,25 @@ python build_wiki.py --report   # 파싱·매칭 통계만 출력
 `python package.py` 로 소유권 이전용 ZIP(`lorebook-wiki-package.zip`)을 만듭니다
 — 소스·데이터·문서·이미지·최종 HTML 포함, 재빌드 가능.
 
+## 인터랙티브 플레이 앱 (`lorebook-play.html`)
+
+이 로어북을 babechat/zetta류로 **플레이**하는 단일 HTML 앱입니다. 클라이언트 단독·BYO 키 —
+브라우저가 직접 LLM API를 호출합니다(`mock` 프로바이더로 키 없이 흐름 체험 가능).
+
+```bash
+python build_play.py            # lorebook-play.html 생성
+python build_play.py --report   # 시드/모듈 통계만 출력
+```
+
+- **시작 / 회차 선택** — 주인공 1명 + 동행 최대 3명, 세계의 기억 장착(NG+), 이어하기
+- **플레이 루프** — 소설형 서사 + 스트리밍, 우측에 호감도 미니 패널
+- **스테이터스 창** — 캐릭터별 호감도·밴드·다축(신뢰/존중/연심)
+- **장비/복장** — 슬롯 장착(복장·무기·장신구), 변신↔평상복 초상 전환, 장착이 서사에 반영
+- **API 설정** — Anthropic(Claude) · OpenAI 호환 · Google Gemini · mock. 키는 브라우저 localStorage에만 저장
+
+상태 모델(영역·호감도·인벤토리/복장·세계 플래그)과 모듈(장착형 서사 효과) 설계는
+[worldstate.md](worldstate.md)에 있습니다. 저작 자산: `affinity_bands.json`·`flag_catalog.json`·`modules.json`.
+
+> 플레이 앱은 LLM 호출을 위해 온라인이 필요합니다(그 외 자산은 인라인). 위키(`lorebook-wiki.html`)는 그대로 오프라인입니다.
+
 > 주 언어는 한국어. 고유명사는 한글 메인 + 일어/영문 병기. 원본 `lorebook_export.json` 은 읽기 전용.

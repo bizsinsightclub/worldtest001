@@ -1,0 +1,24 @@
+{
+  "flags": [
+    { "key": "shikoku_sealed",      "type": "bool",   "default": true,  "label": "시고쿠 봉인",
+      "desc": "시고쿠는 황폐해져 봉인되어 있다. 봉인 중에는 진입과 등장 인물이 제한된다." },
+    { "key": "chieri_kidnapped",    "type": "bool",   "default": true,  "label": "치에리 납치",
+      "desc": "히노 치에리가 시고쿠로 납치된 상태. 마법소녀청의 비개입 정책이 강화된다." },
+    { "key": "gekko_karen_unlocked","type": "bool",   "default": false, "label": "게코카렌 접근권",
+      "desc": "월광가련 접근 권한. 공식 교류전 2연승 등으로 해금된다." },
+    { "key": "hyakki_yagyo_active", "type": "bool",   "default": false, "label": "백귀야행 발생",
+      "desc": "백귀야행이 진행 중. 광역 위협 분위기로 전환된다." },
+    { "key": "exchange_win_streak", "type": "number", "default": 0,     "label": "교류전 연승",
+      "desc": "공식 교류전 연승 수. 게코카렌 해금 조건 계산에 쓰인다." },
+    { "key": "hiyori_copy_charges", "type": "number", "default": 0, "min": 0, "max": 2, "label": "능력 복사 슬롯",
+      "desc": "나가미 히요리의 능력 복사 슬롯(5분 관찰 → 1시간 복사, 최대 2)." }
+  ],
+  "issue": [
+    { "id": "rule-shikoku-truth",
+      "when": { "path": "flags.shikoku_sealed", "op": "eq", "value": false },
+      "grants": "mod-memory-shikoku-truth" },
+    { "id": "rule-gekko-reward",
+      "when": { "path": "flags.gekko_karen_unlocked", "op": "eq", "value": true },
+      "grants": "mod-memory-gekko-rest" }
+  ]
+}

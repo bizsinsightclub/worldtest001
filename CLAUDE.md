@@ -1,6 +1,6 @@
 # CLAUDE.md — 마법소녀 세계관 위키 프로젝트
 
-/ 이 파일은 이 저장소에서 작업할 때의 기준 규약이다. 작업 전 [design.md](design.md)·[tonemanner.md](tonemanner.md)·[lesson.md](lesson.md)도 함께 참고할 것.
+/ 이 파일은 이 저장소에서 작업할 때의 기준 규약이다. 작업 전 [design.md](design.md)·[tonemanner.md](tonemanner.md)·[lesson.md](lesson.md)도 함께 참고할 것. 인터랙티브 플랫폼용 월드 스테이트 설계는 [worldstate.md](worldstate.md) 참조.
 
 ## 프로젝트란
 
@@ -22,13 +22,20 @@
 | `relation_types.json` | 관계 유형 캐시 (`srcId|tgtId` → 유형) |
 | `japan_pref.geojson` | 도도부현 경계 캐시 (1회 다운로드) |
 | `lorebook-wiki.html` | **최종 산출물** (데이터·이미지 base64·JS·CSS 인라인) |
+| `worldstate.md` | 인터랙티브 플랫폼용 월드 스테이트 & 모듈 설계 (엔진 비종속 스펙) |
+| `build_play.py` | **플레이 앱 빌드** 진입점. `build_wiki` 캐논 재사용 + 시드/자산 주입 → `lorebook-play.html` |
+| `play_template.py` | 플레이 앱 HTML/CSS/JS 템플릿 (vanilla). LLM 어댑터·WorldState 엔진·4뷰 |
+| `affinity_bands.json` · `flag_catalog.json` · `modules.json` | 플레이 저작 자산 (밴드 임계 · 캐논 분기 플래그 · 세계의 기억/특수 모듈) |
+| `lorebook-play.html` | **플레이 산출물** (클라이언트 단독·BYO 키, LLM 호출 시 온라인) |
 | 이미지 | `C:\Users\User\Documents\카카오톡 받은 파일\collected_chars` (`{GivenName}_default.webp`, `{GivenName}_magical girl default.webp`) |
 
 ## 빌드 · 검증
 
 ```bash
-python build_wiki.py            # lorebook-wiki.html 생성
+python build_wiki.py            # lorebook-wiki.html 생성 (독자용 위키)
 python build_wiki.py --report   # 파싱·매칭 통계만 출력 (HTML 미생성)
+python build_play.py            # lorebook-play.html 생성 (인터랙티브 플레이 앱)
+python build_play.py --report   # 시드/모듈 통계만 출력
 ```
 
 검증은 반드시 **HTTP 서빙 후 Playwright**로 한다 — Playwright는 `file://`을 차단한다:
@@ -42,7 +49,7 @@ python -m http.server 8765 --bind 127.0.0.1   # 백그라운드
 
 ## 하드 제약
 
-- **단일 HTML · 완전 오프라인** — 외부 CDN·타일·폰트 의존 금지. 라이브러리가 필요하면 인라인하거나 vanilla로 자체 구현.
+- **단일 HTML · 완전 오프라인** — 외부 CDN·타일·폰트 의존 금지. 라이브러리가 필요하면 인라인하거나 vanilla로 자체 구현. (예외: **플레이 앱**(`lorebook-play.html`)은 LLM 호출을 위해 '완전 오프라인'을 의도적으로 완화 — 런타임 외부 의존은 사용자가 지정한 LLM 엔드포인트뿐. 그 외 자산은 동일하게 인라인. 키는 클라이언트 localStorage(BYO).)
 - **표준 라이브러리 우선** — `build_wiki.py`는 가능한 한 파이썬 표준 라이브러리만 사용. 외부 패키지는 빌드 타임 한정(예: GeoJSON 다운로드)으로만, 없으면 폴백.
 - **원본 불변** — `lorebook_export.json`은 읽기 전용. 파생물(ko/geojson)은 캐시 파일로 분리.
 - **언어** — 위키 primary 언어는 **한국어**. 규칙은 [tonemanner.md](tonemanner.md).

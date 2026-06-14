@@ -1,0 +1,21 @@
+{
+  "axes": ["trust", "respect", "romance"],
+  "bands": [
+    { "id": "hostile",  "label": "적대", "min": -100, "max": -60, "color": "#d2705a",
+      "directive": "이 인물은 당신을 적으로 여긴다. 경계하고 적의를 드러내며, 협력을 거부하고 정보를 숨긴다." },
+    { "id": "cold",     "label": "냉담", "min": -59,  "max": -20, "color": "#9a8e76",
+      "directive": "이 인물은 당신에게 거리를 둔다. 사무적이고 무뚝뚝하게 대하며 속내를 드러내지 않는다." },
+    { "id": "neutral",  "label": "중립", "min": -19,  "max": 19,  "color": "#b6a784",
+      "directive": "이 인물은 당신을 캐논 설정 그대로의 기본 태도로 대한다." },
+    { "id": "warm",     "label": "호의", "min": 20,   "max": 49,  "color": "#8fc08a",
+      "directive": "이 인물은 당신에게 호의적이다. 협조적이고 먼저 말을 건넨다." },
+    { "id": "trusting", "label": "신뢰", "min": 50,   "max": 79,  "color": "#6fb1c4",
+      "directive": "이 인물은 당신을 신뢰한다. 속내를 털어놓고, 당신을 위해 위험을 감수한다." },
+    { "id": "devoted",  "label": "헌신", "min": 80,   "max": 100, "color": "#e6c879",
+      "directive": "이 인물은 당신에게 헌신적이다. 자기희생도 마다하지 않는다." }
+  ],
+  "seedByRelType": {
+    "family": 60, "caretaker": 45, "childhood": 40, "friend": 35, "love": 55,
+    "mentor": 30, "colleague": 15, "rival": 0, "former": -25, "enemy": -60, "shikoku": -40
+  }
+}
