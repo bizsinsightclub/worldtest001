@@ -103,6 +103,16 @@ def merge():
             print("repaired:", os.path.basename(p), "->", len(d), "entries")
         for k, v in d.items():
             merged[str(k)] = v
+    # 엔트리당 파일(e<idx>.txt)이 있으면 우선 적용 (정렬 버그 수정용)
+    over = sorted(glob.glob(os.path.join(WORK, "e*.txt")))
+    for p in over:
+        base = os.path.basename(p)
+        m = re.match(r"e(\d+)\.txt$", base)
+        if not m:
+            continue
+        merged[m.group(1)] = open(p, encoding="utf-8").read().strip()
+    if over:
+        print("per-entry overrides:", len(over))
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(merged, f, ensure_ascii=False, indent=1)
     print("merge: %d parts -> %d entries -> %s" % (len(parts), len(merged), OUT))
@@ -110,17 +120,37 @@ def merge():
 
 
 def status():
+    """병합 결과 lorebook_ko.json 의 정렬을 원본과 대조."""
     import build_wiki as b
     items = b.load_items()
-    want = set(content_indices(items))
-    have = set()
-    for p in glob.glob(os.path.join(WORK, "part_*.json")):
-        with open(p, encoding="utf-8") as f:
-            have |= {int(k) for k in json.load(f).keys()}
-    missing = sorted(want - have)
-    print("target=%d  translated=%d  missing=%d" % (len(want), len(have & want), len(missing)))
+    if not os.path.exists(OUT):
+        print("lorebook_ko.json 없음 — 먼저 --merge"); return
+    ko = json.load(open(OUT, encoding="utf-8"))
+    want = content_indices(items)
+    missing = [i for i in want if str(i) not in ko]
+    norm = lambda s: "".join((s or "").split())
+    bad = []
+    for i in want:
+        e = items[i]; c = e.get("content") or ""
+        if not b.is_character(c):
+            continue
+        koc = ko.get(str(i))
+        if not koc:
+            continue
+        # 기대 이름 후보: 한글 정식명(comment/Korean Name Order) + 영문 Name
+        cand = [b.get_field(c, "Korean Name Order"), e.get("comment", ""),
+                b.get_field(c, "Name", "Formal Name", "Self-Name")]
+        kon = (b.get_field(koc, "Korean Name Order") or b.get_field(koc, "Name")
+               or b.get_field(koc, "Formal Name", "Self-Name") or "")
+        ok = any(x and (norm(x) in norm(kon) or norm(kon) in norm(x)) for x in cand)
+        if not ok:
+            bad.append((i, e.get("comment"), kon[:16]))
+    print("target=%d  translated=%d  missing=%d" % (len(want), len(ko), len(missing)))
     if missing:
         print("missing idx:", missing)
+    print("misaligned=%d" % len(bad))
+    for x in bad:
+        print("  ", x)
 
 
 if __name__ == "__main__":

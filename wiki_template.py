@@ -330,6 +330,38 @@ rt{font-size:.5em;color:var(--gold);letter-spacing:.04em;font-weight:600}
 .evt p{margin:0;font-size:12px;color:var(--ink-dim);display:-webkit-box;-webkit-line-clamp:3;
   -webkit-box-orient:vertical;overflow:hidden}
 .evt .season{position:absolute;top:14px;right:16px;font-size:18px;opacity:.5}
+
+/* ---- 전투 사례 ---- */
+#view-battles .pad{max-width:1040px;margin:0 auto}
+.battle-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:18px;margin-top:20px}
+.battle-card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);
+  border-left:3px solid #b34a3a;border-radius:12px;padding:18px;cursor:pointer;transition:.14s;position:relative}
+.battle-card:hover{border-color:var(--gold-deep);border-left-color:#e0584b;
+  transform:translateY(-3px);box-shadow:var(--shadow)}
+.btype{display:inline-block;font-size:11px;letter-spacing:.03em;color:#1a1209;
+  background:linear-gradient(180deg,#e6c879,#c9a24b);padding:3px 11px;border-radius:10px;font-weight:700}
+.battle-card h3{margin:10px 0 6px;font-size:18px;color:var(--gold-bright);
+  font-family:'Iowan Old Style',Palatino,'Nanum Myeongjo',Georgia,serif}
+.battle-card .bblurb{font-size:12.5px;color:var(--ink-dim);line-height:1.55;margin-bottom:13px;min-height:38px}
+.bparts{display:flex;align-items:center;padding-left:8px}
+.bparts img,.bparts .anon{width:34px;height:34px;border-radius:50%;object-fit:cover;object-position:top;
+  border:2px solid var(--panel);margin-left:-8px}
+.bparts .anon{background:#2a1622;display:flex;align-items:center;justify-content:center;
+  color:#c77dbb;font-size:13px;font-family:serif}
+/* 리더 */
+.battle-read{padding:8px 32px 36px}
+.battle-read h2{font-family:'Iowan Old Style',Palatino,'Nanum Myeongjo',Georgia,serif;
+  color:var(--gold-bright);font-size:25px;margin:10px 0 4px}
+.bchips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 6px}
+.bchip{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:18px;padding:3px 12px 3px 4px;font-size:12.5px;color:var(--ink);cursor:pointer}
+.bchip:hover{border-color:var(--gold-deep)}
+.bchip img{width:24px;height:24px;border-radius:50%;object-fit:cover;object-position:top}
+.bchip .anon{width:24px;height:24px;border-radius:50%;background:#2a1622;display:flex;align-items:center;
+  justify-content:center;color:#c77dbb;font-size:11px;font-family:serif}
+.battle-read .scene{font-family:'Iowan Old Style','Palatino Linotype','Nanum Myeongjo',Palatino,Georgia,serif;
+  font-size:15.5px;line-height:2.0;color:var(--ink);white-space:pre-wrap;margin-top:16px;
+  border-top:1px solid var(--line);padding-top:18px}
 """
 
 JS = r"""
@@ -593,6 +625,39 @@ function plain(raw){
   const lines=(raw||'').split('\n').filter(l=>l.trim() && !/^#{1,4}\s/.test(l));
   return lines.join(' ').replace(/[#*\-]/g,' ').replace(/\s+/g,' ').trim().slice(0,140);
 }
+
+/* ---------- 전투 사례 ---------- */
+function pthumb(p,kind){
+  const src=p.img?(img(p.img,kind||'m')||img(p.img,'d')):null;
+  return src?`<img src="${src}" title="${esc(p.name)}">`:`<div class="anon" title="${esc(p.name)}">怪</div>`;
+}
+function renderBattles(){
+  const cards=(DATA.battles||[]).map(bt=>`<div class="battle-card" onclick="openBattle('${bt.id}')">
+    <span class="btype">${esc(bt.type)}</span>
+    <h3>${esc(bt.title)}</h3>
+    <div class="bblurb">${esc(bt.blurb)}</div>
+    <div class="bparts">${bt.participants.map(p=>pthumb(p)).join('')}</div></div>`).join('');
+  document.getElementById('view-battles').innerHTML=`<div class="pad">
+    <div class="page-kicker">전투 사례 · Battle Scenarios</div>
+    <h1 class="page-title">전투 묘사 예시</h1>
+    <div class="tl-hint">세계관의 전투 작법을 따라 쓴 등장인물 간 전투 장면입니다. 카드를 눌러 읽어보세요.</div>
+    <div class="battle-grid">${cards}</div></div>`;
+}
+function openBattle(id){
+  const bt=DATA.battles.find(x=>x.id===id); if(!bt) return;
+  const chips=bt.participants.map(p=>{
+    const src=p.img?img(p.img,'d'):null;
+    if(p.id) return `<span class="bchip" onclick="closeModal();show('codex');selectChar('${p.id}')">
+      ${src?`<img src="${src}">`:'<span class="anon">嬢</span>'}${esc(p.name)}</span>`;
+    return `<span class="bchip" style="cursor:default"><span class="anon">怪</span>${esc(p.name)}</span>`;
+  }).join('');
+  document.getElementById('modalBody').innerHTML=`<button class="modal-close" onclick="closeModal()">×</button>
+    <div class="battle-read"><span class="btype">${esc(bt.type)}</span>
+    <h2>${esc(bt.title)}</h2>
+    <div class="bchips">${chips}</div>
+    <div class="scene">${esc(bt.scene)}</div></div>`;
+  document.getElementById('modal').classList.add('open');
+}
 function openEvent(id){
   const e=DATA.events.find(x=>x.id===id);
   document.getElementById('modalBody').innerHTML=
@@ -602,10 +667,12 @@ function openEvent(id){
 }
 
 /* ---------- 관계 그래프 (팩션 클러스터 + 클릭 포커스) ---------- */
-const REL_COLOR={friend:'#7fae6e',family:'#d98fc9',mentor:'#5fc0d6',rival:'#e0b94b',
-  enemy:'#e0584b',former:'#b48be6',love:'#e88fb0',colleague:'#8a7a52'};
-const REL_LABEL={friend:'친구',family:'가족',mentor:'사제',rival:'라이벌',
-  enemy:'적대',former:'옛 인연',love:'연심',colleague:'동료'};
+const REL_COLOR={childhood:'#8fd0a0',friend:'#7fae6e',caretaker:'#e8b06a',mentor:'#5fc0d6',
+  family:'#d98fc9',rival:'#e0b94b',love:'#e88fb0',former:'#b48be6',
+  enemy:'#e0584b',colleague:'#8a7a52'};
+const REL_LABEL={childhood:'소꿉친구',friend:'친구',caretaker:'돌봄',mentor:'사제',
+  family:'가족',rival:'라이벌',love:'연심',former:'옛 인연',
+  enemy:'적대',colleague:'동료'};
 const GFAC=['rep','trainee','bureau','shikoku','refusal','villain','other','guest'];
 let graphInited=false, gNodes=[], gEdges=[], gFilter='all', gHover=null, gDrag=null,
     gFocus=null, gNbr=new Set(), gDragMoved=false;
@@ -802,7 +869,7 @@ function selectDistrict(d){
   document.querySelectorAll('.district,.dlabel').forEach(g=>g.classList.toggle('sel',g.dataset.d===d));
   const info=document.getElementById('mapInfo');
   const kr=krName(d);
-  const norms = d==='Hokkaido' ? ['Northern Hokkaido','Southern Hokkaido'] : [d];
+  const norms = d==='Hokkaido' ? ['Hokkaido','Northern Hokkaido','Southern Hokkaido'] : [d];
   const inD=c=>norms.includes(c.districtNorm);
   const reps=DATA.characters.filter(c=>inD(c)&&c.faction==='rep');
   const trs=DATA.characters.filter(c=>inD(c)&&c.faction==='trainee');
@@ -869,6 +936,7 @@ function boot(){
   selectChar(DATA.characters[0].id);
   renderTimeline();
   renderCalendar();
+  renderBattles();
   setupSearch();
   // 필터 버튼
   const fb=document.getElementById('filters');
@@ -923,6 +991,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
       <button class="navbtn" data-view="map"><span class="ic">⌖</span>지구 지도</button>
       <button class="navbtn" data-view="timeline"><span class="ic">⏚</span>연표</button>
       <button class="navbtn" data-view="calendar"><span class="ic">❂</span>캘린더</button>
+      <button class="navbtn" data-view="battles"><span class="ic">⚔</span>전투 사례</button>
     </div>
     <div class="sideband">Interactive Fantasy Lore</div>
   </nav>
@@ -953,6 +1022,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
     </section>
     <section id="view-timeline" class="view"></section>
     <section id="view-calendar" class="view"></section>
+    <section id="view-battles" class="view"></section>
   </main>
 </div>
 <div id="modal"><div class="modal-box" id="modalBody"></div></div>

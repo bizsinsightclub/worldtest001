@@ -248,6 +248,7 @@ def build_dataset(report_only=False):
     characters = []
     lore_pages = []
     events = []
+    ko_misaligned = []
 
     used_prefixes = set()
 
@@ -284,6 +285,7 @@ def build_dataset(report_only=False):
             district = normalize_district(
                 get_field(content, "Assigned District", "Current Territory"),
                 tag.get("tagline"))
+            district = HOKKAIDO_MERGE.get(district, district)  # 홋카이도 통합
 
             char = {
                 "id": "char-%d" % i,
@@ -320,9 +322,13 @@ def build_dataset(report_only=False):
                 "_imgset": imgset,  # 경로 (HTML 단계에서 base64)
             }
 
-            # --- 한국어 표시값 오버레이 ---
+            # --- 한국어 표시값 오버레이 (정렬 가드) ---
             ko_content = ko.get(str(i))
+            if ko_content and not ko_aligned(content, comment, ko_content):
+                ko_misaligned.append((i, comment))
+                ko_content = None  # 시프트 의심 -> 영문 폴백
             if ko_content:
+                ko_content = clean_ko(ko_content)
                 char["raw"] = ko_content  # 모달은 한국어 본문
                 ko_sec = get_sections(ko_content)
                 char["office"] = strip_redundant_label(
@@ -349,14 +355,17 @@ def build_dataset(report_only=False):
         elif folder == "고정 이벤트":
             events.append({
                 "id": "event-%d" % i, "title": comment,
-                "keys": keys, "raw": ko.get(str(i)) or content,
+                "keys": keys, "raw": clean_ko(ko.get(str(i)) or content),
                 "month": guess_month(keys, comment),
             })
+        elif comment == "전투 추가 가이드라인":
+            continue  # 작법 지침 = 위키 비노출 (전투 사례 뷰로 대체)
         else:
             lore_pages.append({
-                "id": "lore-%d" % i, "title": comment,
+                "id": "lore-%d" % i,
+                "title": {"NPC List": "등장인물 목록", "Monster List": "괴이 목록"}.get(comment, comment),
                 "folder": folder, "keys": keys,
-                "raw": ko.get(str(i)) or content,
+                "raw": clean_ko(ko.get(str(i)) or content),
             })
 
     # 매칭 안 된 이미지 -> 게스트 카드
@@ -381,6 +390,7 @@ def build_dataset(report_only=False):
         "images": images,
         "used_prefixes": used_prefixes,
         "edges": edges,
+        "ko_misaligned": ko_misaligned,
     }
 
 
@@ -455,9 +465,13 @@ DISTRICT_KR = {
     "Eastern Chubu": "주부 동부", "Western Chubu": "주부 서부",
     "Eastern Kanto": "간토 동부", "Western Kanto": "간토 서부",
     "Northern Tohoku": "도호쿠 북부", "Southern Tohoku": "도호쿠 남부",
-    "Northern Hokkaido": "홋카이도 북부", "Southern Hokkaido": "홋카이도 남부",
+    "Northern Hokkaido": "홋카이도", "Southern Hokkaido": "홋카이도",
+    "Hokkaido": "홋카이도",
     "Shikoku": "시고쿠",
 }
+
+# 원작자 의도: 홋카이도는 북부/남부로 나뉘지 않음 -> 단일 구역으로 통합
+HOKKAIDO_MERGE = {"Northern Hokkaido": "Hokkaido", "Southern Hokkaido": "Hokkaido"}
 
 
 # --- 한국어 표시값 변환 -----------------------------------------------------
@@ -521,6 +535,43 @@ def load_korean():
         return {}
     with open(path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def ko_aligned(en_content, comment, ko_content):
+    """KO 엔트리가 이 캐릭터의 것인지(이름 일치) 검증 — 번역 시프트 가드."""
+    norm = lambda s: "".join((s or "").split())
+    cand = [get_field(en_content, "Korean Name Order"), comment,
+            get_field(en_content, "Name", "Formal Name", "Self-Name")]
+    kon = (get_field(ko_content, "Korean Name Order")
+           or get_field(ko_content, "Name")
+           or get_field(ko_content, "Formal Name", "Self-Name") or "")
+    return any(x and (norm(x) in norm(kon) or norm(kon) in norm(x)) for x in cand)
+
+
+# 홋카이도 통합 프로즈 보정 (원본 불변 → 표시 텍스트만 치환)
+def fix_hokkaido_prose(text):
+    if not text:
+        return text
+    t = text
+    t = t.replace("북부 홋카이도", "홋카이도").replace("남부 홋카이도", "홋카이도")
+    t = t.replace("홋카이도 북부", "홋카이도").replace("홋카이도 남부", "홋카이도")
+    t = t.replace("Northern Hokkaido", "Hokkaido").replace("Southern Hokkaido", "Hokkaido")
+    # '도쿄, 홋카이도, 그리고 홋카이도' 같은 중복 정리
+    t = re.sub(r"홋카이도(\s*[,·]\s*홋카이도)+", "홋카이도", t)
+    t = t.replace("열일곱 개", "열여섯 개").replace("17개 지구", "16개 지구") \
+         .replace("seventeen", "sixteen")
+    return t
+
+
+def collapse_dup_gloss(text):
+    """'마법소녀 사무소(마법소녀 사무소)' 같은 한글(동일한글) 중복 제거."""
+    if not text:
+        return text
+    return re.sub(r"([가-힣][가-힣 ]*?)\s*[(（]\s*\1\s*[)）]", r"\1", text)
+
+
+def clean_ko(text):
+    return collapse_dup_gloss(fix_hokkaido_prose(text))
 
 
 # 관계 유형 분류 (영문 원문 키워드)
@@ -589,7 +640,20 @@ def guess_month(keys, title):
 # 8. 관계 엣지 해석 (target 문자열 -> 캐릭터 id)
 # ---------------------------------------------------------------------------
 
+def load_rel_types():
+    path = os.path.join(HERE, "relation_types.json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+
 def resolve_edges(characters):
+    rel_cache = load_rel_types()
+
+    def rtype(src_id, tgt_id, text):
+        return rel_cache.get("%s|%s" % (src_id, tgt_id)) or classify_rel(text)
+
     # 이름 -> id 룩업 테이블
     lookup = {}
 
@@ -622,8 +686,9 @@ def resolve_edges(characters):
     for c in characters:
         # 한국어 관계 목록 targetId 해석 (포커스 패널용)
         for rk in c.get("rel_ko", []):
-            rk["targetId"] = resolve(rk["target"])
-            rk["type"] = classify_rel(rk["text"])
+            tid = resolve(rk["target"])
+            rk["targetId"] = tid
+            rk["type"] = rtype(c["id"], tid, rk["text"]) if tid else classify_rel(rk["text"])
         for rel in c["relationships"]:
             tid = resolve(rel["target"])
             rel["targetId"] = tid
@@ -633,7 +698,7 @@ def resolve_edges(characters):
                     seen.add(pair)
                     edges.append({"source": c["id"], "target": tid,
                                   "text": rel["text"],
-                                  "type": classify_rel(rel["text"])})
+                                  "type": rtype(c["id"], tid, rel["text"])})
     return edges
 
 
@@ -689,6 +754,14 @@ def report(ds):
     no_img = [c["title"] for c in chars if not c["imgPrefix"]]
     print("이미지 매칭 실패 캐릭터(%d):" % len(no_img), no_img)
     print("이미지 매칭 성공: %d/%d" % (len(chars) - len(no_img), len(chars)))
+    print()
+    km = ds.get("ko_misaligned", [])
+    print("KO 정렬 경고(시프트 의심, 영문 폴백): %d" % len(km), km if km else "")
+    # 홋카이도 통합 확인
+    hk = [c["title"] for c in chars if c.get("districtNorm") in ("Northern Hokkaido", "Southern Hokkaido")]
+    print("N/S 홋카이도 잔존(0이어야 함):", hk)
+    hk1 = [c["title"] for c in chars if c.get("districtNorm") == "Hokkaido"]
+    print("홋카이도 단일 배정:", hk1)
     print()
     # 지구 매핑
     dist = [c["title"] for c in chars if c["districtNorm"]]
@@ -771,6 +844,13 @@ def build_js_data(ds):
                "imgPrefix": g["imgPrefix"], "guest": True,
                "stars": 0, "rankLabel": "게스트"} for g in ds["guests"]]
 
+    # 전투 사례
+    battles = []
+    bpath = os.path.join(HERE, "battle_scenes.json")
+    if os.path.exists(bpath):
+        with open(bpath, encoding="utf-8") as f:
+            battles = json.load(f)
+
     return {
         "characters": [char_out(c) for c in ds["characters"]],
         "guests": guests,
@@ -779,6 +859,7 @@ def build_js_data(ds):
         "edges": ds["edges"],
         "history": HISTORY,
         "images": images,
+        "battles": battles,
     }
 
 

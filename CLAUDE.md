@@ -13,9 +13,13 @@
 | `lorebook_export.json` | 원본 로어북 (영문, RisuAI export). **수정하지 않음** |
 | `build_wiki.py` | 파서 + 데이터 조립 + HTML 생성기. 진입점 |
 | `wiki_template.py` | HTML/CSS/JS 템플릿. `build_wiki.py`가 DATA를 주입 |
-| `translate_lorebook.py` | 번역 파이프라인 (병렬 서브에이전트 → `lorebook_ko.json`) |
+| `translate_lorebook.py` | 번역 파이프라인 (병렬 서브에이전트 → `lorebook_ko.json`). `--status`로 정렬 검증 |
+| `classify_relations.py` | 관계 유형 LLM 분류 (→ `relation_types.json`) |
+| `battles.py` | 전투 사례 머지 (`_battle_work/scene_*.md` → `battle_scenes.json`) |
+| `battle_scenes.json` | 전투 묘사 예시 10종 (작법은 [tonemanner.md](tonemanner.md)) |
 | `geo_japan.py` | 도도부현 GeoJSON → 17구역 투영 SVG 데이터 |
 | `lorebook_ko.json` | 한국어 번역 캐시 (엔트리별). 재빌드 시 재사용 |
+| `relation_types.json` | 관계 유형 캐시 (`srcId|tgtId` → 유형) |
 | `japan_pref.geojson` | 도도부현 경계 캐시 (1회 다운로드) |
 | `lorebook-wiki.html` | **최종 산출물** (데이터·이미지 base64·JS·CSS 인라인) |
 | 이미지 | `C:\Users\User\Documents\카카오톡 받은 파일\collected_chars` (`{GivenName}_default.webp`, `{GivenName}_magical girl default.webp`) |

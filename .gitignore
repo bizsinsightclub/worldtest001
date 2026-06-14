@@ -19,3 +19,9 @@ Thumbs.db
 
 # stray subagent dump
 *namemap_dump.txt
+
+# 관계 분류 중간 산출물
+_rel_work/
+
+# 전투 사례 중간 산출물
+_battle_work/
