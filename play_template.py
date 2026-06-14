@@ -191,6 +191,37 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .choice{background:#18092a;border:1px solid var(--gold-deep);color:var(--gold-bright);padding:8px 14px;border-radius:9px;
   cursor:pointer;font-size:13px;font-family:inherit}
 .choice:hover{background:#3a2256}
+/* 입력바 액션 (모델 칩 + 빠른 액션) */
+#composer .actbar{max-width:820px;margin:0 auto 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mchip{display:inline-flex;align-items:center;gap:7px;font-family:inherit;cursor:pointer;
+  background:linear-gradient(180deg,#7a4fb8,#5a338f);border:1px solid var(--gold-deep);color:#f3ecff;
+  padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600;box-shadow:var(--shadow)}
+.mchip:hover{filter:brightness(1.12)}
+.mchip .mchip-ic{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;
+  background:#2a0f38;color:var(--gold-bright);font-size:11px}
+.mchip .mchip-cv{opacity:.7;font-size:11px}
+.qbtn{font-family:inherit;cursor:pointer;background:#18092a;border:1px solid var(--line);color:var(--ink-dim);
+  padding:7px 12px;border-radius:999px;font-size:12.5px}
+.qbtn:hover{border-color:var(--gold-deep);color:var(--gold-bright);background:#23123a}
+/* 모델 카드 리스트 */
+.mlist{max-height:300px;overflow:auto;border:1px solid var(--line-soft);border-radius:12px;background:#1b0c2b;margin:2px 0 6px}
+.mcard{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--line-soft)}
+.mcard:last-child{border-bottom:0}
+.mcard:hover{background:#26133c}
+.mcard.sel{background:#2c1746}
+.mcard .mc-main{flex:1;min-width:0}
+.mcard .mc-top{display:flex;align-items:center;gap:8px}
+.mcard .mc-top b{color:var(--ink);font-size:14.5px}
+.mcard .mc-rec{font-size:10.5px;color:#160a22;background:var(--gold-bright);border-radius:5px;padding:1px 6px;font-weight:700}
+.mcard .mc-tag{color:var(--gold);font-size:11.5px;font-weight:600;margin-top:1px}
+.mcard .mc-desc{color:var(--ink-faint);font-size:12px;margin-top:3px;line-height:1.4}
+.mcard .mc-check{color:var(--gold-bright);font-size:18px;width:20px;text-align:center}
+/* 고급(직접 입력) */
+.adv{margin:8px 0 4px;border:1px solid var(--line-soft);border-radius:10px;padding:6px 12px;background:#1b0c2b}
+.adv>summary{cursor:pointer;color:var(--ink-dim);font-size:13px;padding:4px 0;list-style:none}
+.adv>summary::-webkit-details-marker{display:none}
+.adv>summary::before{content:'▸ ';color:var(--gold-deep)}
+.adv[open]>summary::before{content:'▾ '}
 
 /* 벨벳 패널 광택 */
 .card2,.scard,.sdetail,.recap,.mbox,.portrait{box-shadow:var(--shadow),inset 0 1px 0 rgba(222,202,255,.07)}
@@ -333,8 +364,23 @@ const PRESETS = {
   gemini:{ep:'https://generativelanguage.googleapis.com/v1beta/models', model:'gemini-2.5-pro'},
   mock:{ep:'', model:'mock'}
 };
-let API = {provider:'mock', endpoint:'', model:'mock', key:''};
+// 추천 모델 카탈로그 (실제 사용 가능한 ID만; 그 외는 '직접 입력')
+const MODELS = [
+  {id:'claude-opus-4-8', label:'Claude Opus 4.8', provider:'anthropic', desc:'극한의 몰입감과 창의적 서사력 — 최신 플래그십', rec:true},
+  {id:'claude-sonnet-4-6', label:'Claude Sonnet 4.6', provider:'anthropic', desc:'균형 잡힌 속도와 품질'},
+  {id:'claude-haiku-4-5', label:'Claude Haiku 4.5', provider:'anthropic', desc:'빠르고 가벼운 응답'},
+  {id:'gemini-2.5-pro', label:'Gemini 2.5 Pro', provider:'gemini', desc:'고성능 · 장문 대화에 적합'},
+  {id:'gemini-2.5-flash', label:'Gemini 2.5 Flash', provider:'gemini', desc:'빠른 응답'},
+  {id:'gpt-4o', label:'GPT-4o', provider:'openai', desc:'범용 고품질'},
+  {id:'gpt-4o-mini', label:'GPT-4o mini', provider:'openai', desc:'빠르고 저렴'},
+  {id:'mock', label:'환영(幻影) · 시연', provider:'mock', desc:'키 없이 흐름 체험'},
+];
+const PROVIDER_KR = {anthropic:'Anthropic · Claude', openai:'OpenAI 호환', gemini:'Google Gemini', mock:'시연'};
+function modelMeta(id){ return MODELS.find(m=>m.id===id)||null; }
+function shortModelLabel(){ const m=modelMeta(API.model); if(m) return m.label.replace(/^환영.*/,'시연').replace('Claude ','').replace('Gemini ','Gemini '); return API.model||'모델 선택'; }
+let API = {provider:'mock', endpoint:'', model:'mock', key:'', keys:{}};
 try{ const s=JSON.parse(localStorage.getItem('playApi')||'null'); if(s) API=s; }catch(e){}
+if(!API.keys){ API.keys={}; if(API.key && API.provider && API.provider!=='mock') API.keys[API.provider]=API.key; }  // 구형 마이그레이션
 function saveApi(){ localStorage.setItem('playApi', JSON.stringify(API)); }
 
 /* ============ WorldState 엔진 ============ */
@@ -723,6 +769,29 @@ async function turn(text){
   saveRun();
   busy=false; document.getElementById('sendBtn').disabled=false;
 }
+/* 빠른 액션: 상황묘사 — 플레이어 입력 없이 장면을 이어 묘사 */
+function quickNarrate(){
+  if(busy||!W) return;
+  turn('(내 행동을 기다리지 말고, 장면을 한 박자 자연스럽게 이어서 묘사해 줘.)');
+}
+/* 빠른 액션: 추천답변 — 후보 3개를 받아 선택지 칩으로 */
+async function suggestReplies(){
+  if(busy||!W) return;
+  const box=document.getElementById('choices');
+  box.innerHTML='<span class="muted" style="font-size:12px">추천 답변 생성 중…</span>';
+  const sys=assembleContext()+'\n\n[작업] 위 상황에서 플레이어("당신")가 취할 법한 짧은 행동/대사 후보를 정확히 3개, 각 줄 앞에 "- "를 붙여 한 줄씩 제시하라. 서사·설명·번호 없이 후보 문장만.';
+  let out='';
+  try{
+    if(API.provider==='mock'){ out='- 조심스럽게 다가가 말을 건다\n- 한 걸음 물러서 상황을 살핀다\n- 손을 내밀어 그녀를 돕는다'; }
+    else { await callLLM(sys, convo.concat([{role:'user',text:'(추천 답변 후보 3개만)'}]), t=>{ out+=t; }); }
+  }catch(e){ box.innerHTML='<span style="color:#e0a35c;font-size:12px">[추천 실패] '+esc(e.message)+'</span>'; return; }
+  const opts=out.split(/\n/).map(s=>s.replace(/^[\s\-*•·\d.)]+/,'').trim()).filter(Boolean).slice(0,3);
+  box.innerHTML='';
+  opts.forEach(o=>{ const b=document.createElement('button'); b.className='choice'; b.textContent=o;
+    b.onclick=()=>{ const i=document.getElementById('userInput'); i.value=o; box.innerHTML=''; i.focus(); };
+    box.appendChild(b); });
+  if(!opts.length) box.innerHTML='<span class="muted" style="font-size:12px">후보를 만들지 못했습니다.</span>';
+}
 function firstSentence(t){
   let s=(t||'').replace(/[#*>`_]/g,'').replace(/\s+/g,' ').trim().replace(/^["'“”‘’\-\s]+/,'');
   const m=s.match(/^[\s\S]*?[.!?。…！？]/);
@@ -859,27 +928,71 @@ function toggleEquip(id, slot){
   saveRun(); renderEquip(); renderRail();
 }
 
-/* ============ 설정 모달 ============ */
+/* ============ 설정 모달 (모델 카드 + 직접 입력) ============ */
+let SETDRAFT=null;  // 모달 작업 드래프트
 function openSettings(){
-  document.getElementById('setProvider').value=API.provider;
-  document.getElementById('setEndpoint').value=API.endpoint||'';
-  document.getElementById('setModel').value=API.model||'';
-  document.getElementById('setKey').value=API.key||'';
-  syncSetHint();
+  SETDRAFT={provider:API.provider, endpoint:API.endpoint||'', model:API.model||'mock',
+            key:(API.keys&&API.keys[API.provider])||API.key||''};
+  // 카탈로그에 없는 현재 모델이면 고급 영역을 펼쳐 노출
+  document.getElementById('setAdv').open = !modelMeta(SETDRAFT.model);
+  renderModelList(); syncAdvFields(); syncKeyField();
   document.getElementById('modal').classList.add('on');
 }
-function syncSetHint(){
-  const pv=document.getElementById('setProvider').value; const pr=PRESETS[pv];
-  document.getElementById('setEndpoint').placeholder=pr.ep||'(불필요)';
-  if(!document.getElementById('setModel').value) document.getElementById('setModel').value=pr.model;
-  document.getElementById('setKeyWrap').style.display = pv==='mock'?'none':'block';
+function renderModelList(){
+  const wrap=document.getElementById('modelList'); wrap.innerHTML='';
+  MODELS.forEach(m=>{
+    const sel = m.id===SETDRAFT.model;
+    const el=document.createElement('div'); el.className='mcard'+(sel?' sel':'');
+    el.innerHTML='<div class="mc-main"><div class="mc-top"><b>'+esc(m.label)+'</b>'
+      +(m.rec?'<span class="mc-rec">추천</span>':'')+'</div>'
+      +'<div class="mc-tag">'+esc(PROVIDER_KR[m.provider]||m.provider)+'</div>'
+      +'<div class="mc-desc">'+esc(m.desc)+'</div></div>'
+      +'<div class="mc-check">'+(sel?'✓':'')+'</div>';
+    el.onclick=()=>selectModel(m.id);
+    wrap.appendChild(el);
+  });
+}
+function selectModel(id){
+  const m=modelMeta(id); if(!m) return;
+  SETDRAFT.provider=m.provider; SETDRAFT.model=m.id; SETDRAFT.endpoint='';
+  SETDRAFT.key=(API.keys&&API.keys[m.provider])||'';
+  document.getElementById('setAdv').open=false;
+  renderModelList(); syncAdvFields(); syncKeyField();
+}
+function syncAdvFields(){
+  document.getElementById('setProvider').value=SETDRAFT.provider;
+  document.getElementById('setEndpoint').value=SETDRAFT.endpoint||'';
+  document.getElementById('setEndpoint').placeholder=(PRESETS[SETDRAFT.provider]||{}).ep||'(불필요)';
+  document.getElementById('setModel').value=SETDRAFT.model||'';
+}
+function syncKeyField(){
+  const isMock=SETDRAFT.provider==='mock';
+  document.getElementById('setKeyWrap').style.display=isMock?'none':'block';
+  document.getElementById('setKeyLabel').textContent='아카식 개인 식별자 · A.P.I.  ('+(PROVIDER_KR[SETDRAFT.provider]||'API')+' 키)';
+  document.getElementById('setKey').value=SETDRAFT.key||'';
+  const has=!!(API.keys&&API.keys[SETDRAFT.provider]);
+  document.getElementById('setKeyHint').textContent = isMock?'' : (has?'저장된 키가 있습니다 · 비우면 유지됩니다':'이 모델을 쓰려면 키가 필요합니다');
 }
 function saveSettings(){
-  API.provider=document.getElementById('setProvider').value;
-  API.endpoint=document.getElementById('setEndpoint').value.trim();
-  API.model=document.getElementById('setModel').value.trim()||PRESETS[API.provider].model;
-  API.key=document.getElementById('setKey').value.trim();
-  saveApi(); document.getElementById('modal').classList.remove('on');
+  // 고급 영역 값 반영(직접 입력 우선)
+  SETDRAFT.provider=document.getElementById('setProvider').value;
+  SETDRAFT.endpoint=document.getElementById('setEndpoint').value.trim();
+  const mv=document.getElementById('setModel').value.trim();
+  if(mv) SETDRAFT.model=mv;
+  const kv=document.getElementById('setKey').value.trim();
+  API.provider=SETDRAFT.provider;
+  API.endpoint=SETDRAFT.endpoint;
+  API.model=SETDRAFT.model||(PRESETS[API.provider]||{}).model||'mock';
+  if(API.provider!=='mock'){
+    if(kv){ API.keys[API.provider]=kv; }            // 새 키 저장
+    API.key=API.keys[API.provider]||'';             // 기존 키 유지
+  } else { API.key=''; }
+  saveApi(); renderModelChip();
+  document.getElementById('modal').classList.remove('on');
+}
+function renderModelChip(){
+  const c=document.getElementById('modelChip'); if(!c) return;
+  c.querySelector('.mchip-name').textContent=shortModelLabel();
 }
 
 /* ============ 모듈 가져오기 (이미지+메타데이터) ============ */
@@ -912,7 +1025,11 @@ function boot(){
   document.getElementById('btnSettings').onclick=openSettings;
   document.getElementById('setClose').onclick=()=>document.getElementById('modal').classList.remove('on');
   document.getElementById('setSave').onclick=saveSettings;
-  document.getElementById('setProvider').onchange=function(){document.getElementById('setModel').value='';syncSetHint();};
+  // 고급(직접 입력) 필드 → 드래프트 동기화
+  document.getElementById('setProvider').onchange=function(){ SETDRAFT.provider=this.value; SETDRAFT.endpoint=''; SETDRAFT.key=(API.keys&&API.keys[this.value])||''; syncAdvFields(); syncKeyField(); renderModelList(); };
+  document.getElementById('setEndpoint').oninput=function(){ SETDRAFT.endpoint=this.value; };
+  document.getElementById('setModel').oninput=function(){ SETDRAFT.model=this.value; renderModelList(); };
+  document.getElementById('setKey').oninput=function(){ SETDRAFT.key=this.value; };
   document.getElementById('impOpen').onclick=()=>document.getElementById('impModal').classList.add('on');
   document.getElementById('impClose').onclick=()=>document.getElementById('impModal').classList.remove('on');
   document.getElementById('impAdd').onclick=importModules;
@@ -930,6 +1047,10 @@ function boot(){
     const v=i.value; i.value=''; turn(v); };
   document.getElementById('userInput').addEventListener('keydown',e=>{
     if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); document.getElementById('sendBtn').click(); }});
+  document.getElementById('modelChip').onclick=openSettings;
+  document.getElementById('qNarrate').onclick=quickNarrate;
+  document.getElementById('qSuggest').onclick=suggestReplies;
+  renderModelChip();
   document.getElementById('endRunBtn').onclick=()=>{
     if(!W)return; const got=issueMemories(); saveRun();
     alert(got.length?('회차를 마칩니다. 세계의 기억 발급: '+got.map(g=>(modById[g]||{}).title||g).join(', ')):'회차를 마칩니다. 새로 발급된 기억은 없습니다.');
@@ -1004,6 +1125,11 @@ HTML_SHELL = r"""<!DOCTYPE html>
         <div id="log"></div>
         <div id="composer">
           <div id="choices"></div>
+          <div class="actbar">
+            <button class="mchip" id="modelChip" title="AI 모델 선택"><span class="mchip-ic">✦</span><span class="mchip-name">모델</span><span class="mchip-cv">⌄</span></button>
+            <button class="qbtn" id="qNarrate" title="플레이어 입력 없이 장면을 이어 묘사">✶ 상황묘사</button>
+            <button class="qbtn" id="qSuggest" title="취할 만한 행동 후보 제안">✦ 추천답변</button>
+          </div>
           <div class="inwrap">
             <textarea id="userInput" class="tin" placeholder="행동이나 대사를 입력… (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
             <button class="btn" id="sendBtn">전송</button>
@@ -1049,24 +1175,31 @@ HTML_SHELL = r"""<!DOCTYPE html>
 <div id="modal">
   <div class="mbox">
     <span class="close" id="setClose">×</span>
-    <h3>인격 파편 조율 <span style="font-size:13px;color:var(--ink-faint);font-weight:400" title="API 설정 — 외부 LLM 연결">(Akashic Tuning)</span></h3>
-    <p class="muted" style="font-size:12px;margin:.1em 0 12px">아스라한 인격 파편을 불러올 출처와 식별자를 새긴다.</p>
-    <label class="fld"><span class="tip" data-tip="프로바이더 — 어떤 LLM 서비스를 쓸지(Anthropic·OpenAI·Gemini)">권능의 출처</span></label>
-    <select class="tin" id="setProvider">
-      <option value="mock">환영(幻影) · 시연 — 식별자 불필요</option>
-      <option value="anthropic">Anthropic · Claude</option>
-      <option value="openai">OpenAI 호환</option>
-      <option value="gemini">Google Gemini</option>
-    </select>
-    <label class="fld"><span class="tip" data-tip="엔드포인트 URL — 비우면 프로바이더 기본값">차원 좌표 <span style="opacity:.6">(비우면 기본)</span></span></label>
-    <input class="tin" id="setEndpoint" placeholder="">
-    <label class="fld"><span class="tip" data-tip="모델 ID (예: claude-opus-4-8, gpt-4o, gemini-2.5-pro)">파편의 위계</span></label>
-    <input class="tin" id="setModel" placeholder="모델 ID">
+    <h3>인격 파편 조율 <span style="font-size:13px;color:var(--ink-faint);font-weight:400" title="API 설정 — 외부 LLM 연결">(AI 모델 · 연결 설정)</span></h3>
+    <p class="muted" style="font-size:12px;margin:.1em 0 12px">불러올 인격 파편(AI 모델)을 고르고, 본인 식별자(API 키)를 새긴다.</p>
+    <label class="fld"><span class="tip" data-tip="AI 모델 — 어떤 LLM으로 이야기를 생성할지">파편의 위계 <span style="opacity:.6">(AI 모델)</span></span></label>
+    <div id="modelList" class="mlist"></div>
     <div id="setKeyWrap">
-      <label class="fld"><span class="tip" data-tip="API 키 — Application Programming Interface Key. 본인 키를 입력하세요(이 브라우저에만 저장)">아카식 개인 식별자 · A.P.I.</span></label>
+      <label class="fld"><span class="tip" data-tip="API 키 — Application Programming Interface Key. 본인 키를 입력하세요(이 브라우저에만 저장)" id="setKeyLabel">아카식 개인 식별자 · A.P.I. (API 키)</span></label>
       <input class="tin" id="setKey" type="password" placeholder="이 브라우저에만 깃듭니다">
+      <div class="muted" id="setKeyHint" style="font-size:11px;margin-top:4px"></div>
     </div>
-    <div class="warn">식별자는 localStorage에 깃들어 선택한 차원 좌표로만 직접 전송됩니다. OpenAI 호환은 <code>/chat/completions</code> 전체 URL을, Gemini는 <code>.../v1beta/models</code> 기본 URL을 차원 좌표로 씁니다.</div>
+    <details id="setAdv" class="adv">
+      <summary><span class="tip" data-tip="직접 입력 — 카탈로그에 없는 모델/로컬·타사 엔드포인트(OpenRouter·Ollama·LM Studio 등)">직접 입력 · 고급</span></summary>
+      <label class="fld"><span class="tip" data-tip="프로바이더 — 어떤 LLM 서비스를 쓸지">권능의 출처 (프로바이더)</span></label>
+      <select class="tin" id="setProvider">
+        <option value="mock">환영(幻影) · 시연 — 키 불필요</option>
+        <option value="anthropic">Anthropic · Claude</option>
+        <option value="openai">OpenAI 호환</option>
+        <option value="gemini">Google Gemini</option>
+      </select>
+      <label class="fld"><span class="tip" data-tip="엔드포인트 URL — 비우면 프로바이더 기본값">차원 좌표 (엔드포인트) <span style="opacity:.6">(비우면 기본)</span></span></label>
+      <input class="tin" id="setEndpoint" placeholder="">
+      <label class="fld"><span class="tip" data-tip="모델 ID (예: claude-opus-4-8, gpt-4o, gemini-2.5-pro, openrouter 모델명)">모델 ID</span></label>
+      <input class="tin" id="setModel" placeholder="모델 ID">
+      <div class="warn" style="margin-top:8px">OpenAI 호환은 <code>/chat/completions</code> 전체 URL을, Gemini는 <code>.../v1beta/models</code> 기본 URL을 엔드포인트로 씁니다.</div>
+    </details>
+    <div class="warn">식별자는 localStorage에 깃들어 선택한 엔드포인트로만 직접 전송됩니다.</div>
     <div class="row" style="margin-top:14px"><button class="btn" id="setSave">새기기</button></div>
   </div>
 </div>
