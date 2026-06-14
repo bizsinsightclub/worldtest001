@@ -313,13 +313,38 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .item .eqb{font-size:11px;font-weight:700;color:var(--gold-bright)}
 
 /* 설정 모달 */
-#modal,#impModal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#modal.on,#impModal.on{display:flex}
+#modal,#impModal,#qlipModal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#modal.on,#impModal.on,#qlipModal.on{display:flex}
 textarea.tin{resize:vertical}
 .mbox{background:linear-gradient(180deg,#2a0f38,#20102e);border:1px solid var(--gold-deep);border-radius:16px;
   max-width:480px;width:100%;padding:22px 24px;box-shadow:var(--shadow);max-height:88vh;overflow:auto}
+#qlipModal .mbox{max-width:560px}
 .mbox h3{margin:0 0 12px;color:var(--gold-bright)}
 .close{float:right;cursor:pointer;color:var(--ink-faint);font-size:20px;line-height:1}
+/* 토큰 비용 HUD */
+.hud{max-width:820px;margin:0 auto 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-dim)}
+.hud .hud-i b{color:var(--gold-bright);font-weight:700}
+.hud .hud-sep{color:var(--gold-deep)}
+.hud .hud-btn{margin-left:auto;font-size:11.5px;padding:5px 11px}
+/* 세피로트 모달 */
+.qlip-head{display:flex;gap:16px;align-items:center;margin-bottom:14px}
+.donut{width:120px;height:120px;border-radius:50%;flex:none;display:grid;place-items:center;position:relative}
+.donut::after{content:"";position:absolute;width:72px;height:72px;border-radius:50%;background:#20102e}
+.donut-h{position:relative;z-index:1;text-align:center;line-height:1.2}
+.donut-h b{display:block;color:var(--gold-bright);font-size:12px}
+.donut-h span{font-size:10px;color:var(--ink-faint)}
+.qlip-cap{font-size:14px;color:var(--ink)}
+.qlist{display:flex;flex-direction:column;gap:10px}
+.qrow{display:flex;gap:9px;align-items:flex-start}
+.qrow .swatch{width:12px;height:12px;border-radius:3px;flex:none;margin-top:4px}
+.qrow .qmain{flex:1;min-width:0;border-bottom:1px solid var(--line-soft);padding-bottom:8px}
+.qtop{display:flex;align-items:baseline;gap:6px}
+.qtop b{color:var(--ink);font-size:14px}
+.qtop .qsub{font-size:11px;color:var(--ink-faint)}
+.qtop .qnum{margin-left:auto;color:var(--gold-bright);font-size:13px;font-weight:700}
+.qtop .qpct{color:var(--ink-faint);font-size:11px;font-weight:400}
+.qsrc{font-size:12px;color:var(--gold);margin-top:2px}
+.qwhy{font-size:11.5px;color:var(--ink-faint);margin-top:2px;line-height:1.45}
 """
 
 # ------- JS -------
@@ -343,6 +368,35 @@ const SLOT_KR = {outfit:'복장', weapon:'무기', accessory:'장신구'};
 function loadExtraMods(){ try{return JSON.parse(localStorage.getItem('playMods')||'[]');}catch(e){return [];} }
 function registerMod(m){ modById[m.id]=m; if(!ASSETS.modules.find(x=>x.id===m.id)) ASSETS.modules.push(m); }
 loadExtraMods().forEach(registerMod);
+
+/* ============ 토큰·비용 ('클리포트 억지력' = 토큰 1:1) ============ */
+// 오프라인 휴리스틱 토큰 추정(한글·CJK ≈ 0.6 tok/char, 그 외 ≈ 0.27). 비율 산출 + usage 폴백용.
+function estTokens(s){
+  if(!s) return 0; let cjk=0, oth=0;
+  for(const ch of String(s)){ const c=ch.codePointAt(0);
+    if((c>=0x1100&&c<=0x11FF)||(c>=0x3000&&c<=0x9FFF)||(c>=0xAC00&&c<=0xD7A3)||(c>=0xF900&&c<=0xFAFF)||(c>=0x3040&&c<=0x30FF)) cjk++; else oth++; }
+  return Math.max(1, Math.round(cjk*0.6 + oth*0.27));
+}
+// 모델 단가 (USD / 1M 토큰, 입력/출력 — 근사치)
+const PRICES = {
+  'claude-opus-4-8':[5,25], 'claude-sonnet-4-6':[3,15], 'claude-haiku-4-5':[1,5],
+  'gemini-2.5-pro':[1.25,10], 'gemini-2.5-flash':[0.30,2.5],
+  'gpt-4o':[2.5,10], 'gpt-4o-mini':[0.15,0.6], 'mock':[0,0], '_default':[3,15]
+};
+function priceOf(model){ return PRICES[model] || PRICES['_default']; }
+// USD→KRW 환율: 실시간 fetch(무키·CORS), 24h 캐시, 실패 시 기본 1400
+let FX = 1400;
+(function loadFx(){ try{ const c=JSON.parse(localStorage.getItem('playFx')||'null'); if(c&&c.rate){ FX=c.rate; if(Date.now()-(c.ts||0)<864e5) return; } }catch(e){} refreshFx(); })();
+function setFx(r){ if(r&&r>0){ FX=r; try{localStorage.setItem('playFx',JSON.stringify({rate:r,ts:Date.now()}));}catch(e){} try{renderUsage();}catch(e){} } }
+function refreshFx(){
+  // CORS 허용 무키 엔드포인트(jsdelivr 통화 API) → 실패 시 폴백 → 그래도 실패면 캐시/기본값 유지
+  fetch('https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json')
+    .then(r=>r.json()).then(j=>{ const r=j&&j.usd&&j.usd.krw; if(r) setFx(r); else throw 0; })
+    .catch(()=>fetch('https://open.er-api.com/v6/latest/USD').then(r=>r.json()).then(j=>{ const r=j&&j.rates&&j.rates.KRW; if(r) setFx(r); }).catch(()=>{}));
+}
+function cost(inTok,outTok,model){ const [pi,po]=priceOf(model||API.model); return ((inTok||0)/1e6*pi + (outTok||0)/1e6*po)*FX; }
+function krw(n){ return '₩'+Math.round(n).toLocaleString('ko-KR'); }
+function qlip(n){ return Math.round(n).toLocaleString('ko-KR')+' 클리포트 억지력'; }
 
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function img(prefix,kind){const im=CANON.images[prefix];if(!im)return null;return kind==='m'?(im.m||im.d):(im.d||im.m);}
@@ -517,44 +571,58 @@ function detectSceneChars(excludeIds){
   hits.sort((a,b)=>b.pos-a.pos);
   return hits.slice(0,4).map(h=>h.id);
 }
+let PROMPT_SEGS={};  // 세피로트 분해용: 카테고리별 주입 텍스트
 function assembleContext(){
-  const L=[];
-  L.push('[역할] 당신은 현대 일본 배경 마법소녀 세계관의 라이트노벨을 실시간으로 써 내려가는 작가 겸 게임마스터다. 빠른 답이 미덕이 아니다 — 설정·인물·직전 맥락을 충분히 읽고 한 글자씩 써 내려간다.');
-  L.push('[문체] 라이트노벨 산문체. 서술(나레이션)은 반드시 현재형 평어체 종결("~다/~ㄴ다/~았다·었다")로 쓴다. 격식체(\'~합니다/~입니다/~습니다\')로 서술하지 마라 — 격식체는 그렇게 말하는 캐릭터의 대사 안에서만. (예: 서술 "문이 쾅 열린다. 시로네의 어깨가 흠칫 튄다." ↔ 대사 "알겠습니다, 선배.") 무미건조한 보고형 묘사("그녀가 카드를 내밀었다") 금지 — 같은 사실도 시점 인물의 감각·태도가 묻어나게 쓴다. 문장 길이를 의도적으로 변주한다: 긴장엔 짧게 끊고, 정적엔 길고 유려하게.');
-  L.push('[묘사] 말하지 말고 보여줘라. "놀랐다/긴장했다/기뻤다"라고 쓰지 말고 반응으로 — 숨을 멈추고, 시선을 피하고, 손끝이 떨리고, 발걸음이 가벼워진다. 빛·소리·냄새·온도·촉감 같은 오감과 미세한 몸짓, 짧은 내면 독백을 섞어 생생하게. 의성어·의태어를 자연스럽게 녹인다. 설정·정보는 인포덤프 대신 환경·대사·행동에 녹여 드러낸다. 한 번 묘사한 것은 변하지 않는 한 다시 묘사하지 않고, 변했으면 분명히 다시 묘사한다.');
-  L.push('[대사] 이야기는 대사가 끌고 간다 — 묘사보다 대사 비중을 높게 둔다. 각 인물에게 캐논대로 고유한 말투(존댓말/반말·방언·1인칭·말버릇·문장부호 습관)를 주고 끝까지 보존한다. 실제 사람이 말하듯 짧고 자연스러운 리듬으로, 말줄임표·침묵으로 감정을 싣는다. 일상 대화에 전문용어를 남발하지 마라. 관계는 말투(격식↔반말, 끊고 들어옴↔기다림)로 드러낸다.');
-  L.push('[금지] 번역체 사슬을 끊어라 — "단순한 ~가 아니었다", "A가 아니었다. B였다.", "더 이상 ~가 아니었다", "~일 뿐이었다", "그저·단지" 남발은 모두 금지. 번역투(~를 통해/~에 의해), 이중 피동(~되어진다), 헤지 남발(~인 듯하다)도 금지. 메타 복선("이것은 시작에 불과했다", "그들은 아직 몰랐다") 금지 — 현재에 집중. 직전 응답에 나온 문장·묘사 표현을 그대로 반복하지 마라. 애니풍 과장·주인공 버프·인과 비틀기 금지. 일본식 성-이름 순 유지.');
-  L.push('[인물] 프로필은 작업지시서가 아니다 — 인물은 시트에 안 적힌 일도 한다. 체크리스트식 연기 금지. 성격을 나레이터가 설명하지 말고, 작은 반응에서 큰 반응으로 행동·대사를 통해 드러낸다. 반복되는 상호작용으로 인물은 학습하고 변한다(첫 반응 → 적응 → 익숙해짐).');
-  L.push('[시점·진행] 2인칭("당신") 시점. 시점 인물이 알 수 없는 것은 서술도 모른다 — 불확실하면 추측형으로 쓴다. 응답은 2~4문단. 사건은 당신의 상호작용으로 점진적으로 전개한다 — 급작스런 새 인물·사건을 억지로 밀어넣지 마라. 매 턴을 \'어떻게 하시겠습니까?\'·\'당신의 선택은?\' 같은 메타 질문이나 선택지 나열로 닫지 마라. 장면을 여운이나 긴장으로 자연스럽게 멈춰 플레이어가 다음 행동을 이어 쓰게 둔다.');
-  L.push('[표기] 한국어 우선. 고유명사·기술명은 처음 등장할 때만 한자/원어를 괄호로 가볍게 병기(예: 교쿠로(玉露), 적월). 매번 병기하지 말 것.');
-  L.push('\n[등장인물 캐논] 아래 프로필의 말투·성격·전투 스타일·관계를 충실히 반영하되, 체크리스트처럼 나열하지 말고 장면에 자연스럽게 녹여라.');
+  const L=[]; PROMPT_SEGS={};
+  const seg=(cat,txt)=>{ L.push(txt); PROMPT_SEGS[cat]=(PROMPT_SEGS[cat]||'')+txt+'\n'; };
+  seg('binah','[역할] 당신은 현대 일본 배경 마법소녀 세계관의 라이트노벨을 실시간으로 써 내려가는 작가 겸 게임마스터다. 빠른 답이 미덕이 아니다 — 설정·인물·직전 맥락을 충분히 읽고 한 글자씩 써 내려간다.');
+  seg('binah','[문체] 라이트노벨 산문체. 서술(나레이션)은 반드시 현재형 평어체 종결("~다/~ㄴ다/~았다·었다")로 쓴다. 격식체(\'~합니다/~입니다/~습니다\')로 서술하지 마라 — 격식체는 그렇게 말하는 캐릭터의 대사 안에서만. (예: 서술 "문이 쾅 열린다. 시로네의 어깨가 흠칫 튄다." ↔ 대사 "알겠습니다, 선배.") 무미건조한 보고형 묘사("그녀가 카드를 내밀었다") 금지 — 같은 사실도 시점 인물의 감각·태도가 묻어나게 쓴다. 문장 길이를 의도적으로 변주한다: 긴장엔 짧게 끊고, 정적엔 길고 유려하게.');
+  seg('binah','[묘사] 말하지 말고 보여줘라. "놀랐다/긴장했다/기뻤다"라고 쓰지 말고 반응으로 — 숨을 멈추고, 시선을 피하고, 손끝이 떨리고, 발걸음이 가벼워진다. 빛·소리·냄새·온도·촉감 같은 오감과 미세한 몸짓, 짧은 내면 독백을 섞어 생생하게. 의성어·의태어를 자연스럽게 녹인다. 설정·정보는 인포덤프 대신 환경·대사·행동에 녹여 드러낸다. 한 번 묘사한 것은 변하지 않는 한 다시 묘사하지 않고, 변했으면 분명히 다시 묘사한다.');
+  seg('binah','[대사] 이야기는 대사가 끌고 간다 — 묘사보다 대사 비중을 높게 둔다. 각 인물에게 캐논대로 고유한 말투(존댓말/반말·방언·1인칭·말버릇·문장부호 습관)를 주고 끝까지 보존한다. 실제 사람이 말하듯 짧고 자연스러운 리듬으로, 말줄임표·침묵으로 감정을 싣는다. 일상 대화에 전문용어를 남발하지 마라. 관계는 말투(격식↔반말, 끊고 들어옴↔기다림)로 드러낸다.');
+  seg('binah','[금지] 번역체 사슬을 끊어라 — "단순한 ~가 아니었다", "A가 아니었다. B였다.", "더 이상 ~가 아니었다", "~일 뿐이었다", "그저·단지" 남발은 모두 금지. 번역투(~를 통해/~에 의해), 이중 피동(~되어진다), 헤지 남발(~인 듯하다)도 금지. 메타 복선("이것은 시작에 불과했다", "그들은 아직 몰랐다") 금지 — 현재에 집중. 직전 응답에 나온 문장·묘사 표현을 그대로 반복하지 마라. 애니풍 과장·주인공 버프·인과 비틀기 금지. 일본식 성-이름 순 유지.');
+  seg('binah','[인물] 프로필은 작업지시서가 아니다 — 인물은 시트에 안 적힌 일도 한다. 체크리스트식 연기 금지. 성격을 나레이터가 설명하지 말고, 작은 반응에서 큰 반응으로 행동·대사를 통해 드러낸다. 반복되는 상호작용으로 인물은 학습하고 변한다(첫 반응 → 적응 → 익숙해짐).');
+  seg('binah','[시점·진행] 2인칭("당신") 시점. 시점 인물이 알 수 없는 것은 서술도 모른다 — 불확실하면 추측형으로 쓴다. 응답은 2~4문단. 사건은 당신의 상호작용으로 점진적으로 전개한다 — 급작스런 새 인물·사건을 억지로 밀어넣지 마라. 매 턴을 \'어떻게 하시겠습니까?\'·\'당신의 선택은?\' 같은 메타 질문이나 선택지 나열로 닫지 마라. 장면을 여운이나 긴장으로 자연스럽게 멈춰 플레이어가 다음 행동을 이어 쓰게 둔다.');
+  seg('binah','[표기] 한국어 우선. 고유명사·기술명은 처음 등장할 때만 한자/원어를 괄호로 가볍게 병기(예: 교쿠로(玉露), 적월). 매번 병기하지 말 것.');
+  seg('binah','\n[등장인물 캐논] 아래 프로필의 말투·성격·전투 스타일·관계를 충실히 반영하되, 체크리스트처럼 나열하지 말고 장면에 자연스럽게 녹여라.');
   const p=byId[W.meta.protagonist];
-  if(p){ L.push('\n[주인공]\n'+charDossier(p)); }
+  if(p){ seg('tiphereth','\n[주인공]\n'+charDossier(p)); }
   const compIds=(W.meta.companions||[]).filter(id=>byId[id]);
-  if(compIds.length){ L.push('\n[동행 인물]\n'+compIds.map(id=>charDossier(byId[id])).join('\n\n')); }
+  if(compIds.length){ seg('keter','\n[동행 인물]\n'+compIds.map(id=>charDossier(byId[id])).join('\n\n')); }
   // 최근 장면에 등장한 비동행 캐논 인물 자동 주입
   const sceneIds=detectSceneChars([W.meta.protagonist].concat(compIds));
-  if(sceneIds.length){ L.push('\n[현재 장면 등장 인물]\n'+sceneIds.map(id=>charDossier(byId[id])).join('\n\n')); }
-  // 호감도 밴드 행동 지시
+  if(sceneIds.length){ seg('keter','\n[현재 장면 등장 인물]\n'+sceneIds.map(id=>charDossier(byId[id])).join('\n\n')); }
+  // 호감도 밴드 행동 지시 (+ 세계의 기억)
   const af=[];
   for(const id in W.affinity){ const c=byId[id]; if(!c)continue; const b=bandOf(W.affinity[id].value);
     af.push('- '+c.title+' ('+b.label+'): '+b.directive); }
-  if(af.length){ L.push('\n[인물별 현재 태도(호감도)]\n'+af.join('\n')); }
+  if(af.length){ seg('hod','\n[인물별 현재 태도(호감도)]\n'+af.join('\n')); }
   // 활성 모듈 서사 지시
   const md=[]; activeModules().forEach(m=>(m.effects.narrative||[]).forEach(n=>md.push('- '+n)));
-  if(md.length){ L.push('\n[현재 장착/효과]\n'+md.join('\n')); }
+  if(md.length){ seg('yesod','\n[현재 장착/효과]\n'+md.join('\n')); }
   // 영역/플래그
   const fl=[];
   (ASSETS.flags||[]).forEach(f=>{ const v=W.flags[f.key]; if(v===true)fl.push(f.label); else if(typeof v==='number'&&v>0)fl.push(f.label+'='+v); });
-  if(fl.length) L.push('\n[세계 상태] '+fl.join(' · '));
+  if(fl.length) seg('netzach','\n[세계 상태] '+fl.join(' · '));
   // 상태 델타 프로토콜
-  L.push('\n[중요] 장면 서술 뒤에, 이번 장면으로 바뀐 상태가 있으면 아래 형식의 코드펜스를 정확히 한 번 덧붙여라(없으면 생략):');
-  L.push('```state');
-  L.push('[{"path":"affinity.'+(W.meta.companions[0]||'char-13')+'.value","op":"inc","value":5}]');
-  L.push('```');
-  L.push('허용 path: affinity.<charId>.value(-100~100), affinity.<charId>.axes.<trust|respect|romance>, flags.<키>, territory.<지구>.stability. op: set|inc|dec|toggle. 코드펜스는 독자에게 보이지 않는다.');
+  seg('malkuth','\n[중요] 장면 서술 뒤에, 이번 장면으로 바뀐 상태가 있으면 아래 형식의 코드펜스를 정확히 한 번 덧붙여라(없으면 생략):');
+  seg('malkuth','```state');
+  seg('malkuth','[{"path":"affinity.'+(W.meta.companions[0]||'char-13')+'.value","op":"inc","value":5}]');
+  seg('malkuth','```');
+  seg('malkuth','허용 path: affinity.<charId>.value(-100~100), affinity.<charId>.axes.<trust|respect|romance>, flags.<키>, territory.<지구>.stability. op: set|inc|dec|toggle. 코드펜스는 독자에게 보이지 않는다.');
   return L.join('\n');
 }
+// 세피로트 노드 정의(표시 순서·색·실제 출처 라벨·비유)
+const SEPHIROT = [
+  {key:'keter', name:'케테르 & 호크마', sub:'왕관·지혜', src:'등장인물 캐논 — 동행/장면 프로필', color:'#e0913f', why:'모든 것이 시작되는 무한의 원천. 세계관과 인물의 방향성을 결정하는 절대적 근간.'},
+  {key:'binah', name:'비나', sub:'이해', src:'시스템 프롬프트 — 문체·서사 규칙', color:'#9bb7e8', why:'상위 에너지를 구체적 형태·구조로 빚는 이성. 설정을 실행 가능한 규칙으로 구조화한다.'},
+  {key:'hesed', name:'헤세드', sub:'자비', src:'최근 대화 · 당신의 입력', color:'#e87aa6', why:'끊임없이 확장되는 상호작용의 흐름. 유저가 더해가는 맥락.'},
+  {key:'gevurah', name:'게부라', sub:'엄격·힘', src:'최근 대화 · 서사 응답 누적', color:'#d2705a', why:'콘텍스트를 제한·조율하는 힘. 누적된 서사가 현재를 묶는다.'},
+  {key:'tiphereth', name:'티페리트', sub:'조화', src:'페르소나 — 주인공 프로필', color:'#f0d060', why:'나무 정중앙의 자아(Ego). 정체성의 중심 축을 잡는 페르소나.'},
+  {key:'netzach', name:'네짜', sub:'영원', src:'로어 — 세계 상태·영역', color:'#a98be6', why:'반복 참조되는 집단적 기억과 신화. 변하지 않는 설정의 창고.'},
+  {key:'hod', name:'호드', sub:'영광', src:'장기 기억 — 호감도·세계의 기억', color:'#5fc0d6', why:'정보를 기록·보존·분석하는 내적 메커니즘. 관계와 기억의 논리.'},
+  {key:'yesod', name:'예소드', sub:'기초', src:'캐릭터 — 장착/효과 모듈', color:'#8fd0a8', why:'현실로 출력되기 직전의 아스트랄 통로. 인격의 형태를 갖추는 필터.'},
+  {key:'malkuth', name:'말쿠트', sub:'왕국', src:'생성 가이던스 — 상태 델타', color:'#9a8eb8', why:'모든 연산이 한 줄의 텍스트로 물질화되는 현실. 최종 매듭.'},
+];
 
 /* 새 회차 시작 */
 function newRun(protagId, companionIds, memoryIds){
@@ -580,6 +648,7 @@ function newRun(protagId, companionIds, memoryIds){
   W.inventory.equipped={outfit:cas||null, weapon:wp||null, accessory:null};
   W.modules.equipped=[cas,wp].filter(Boolean).concat(memoryIds);
   W.recap=[];
+  W.usage={runIn:0,runOut:0,runKRW:0,turns:0};
   convo=[];
   saveRun();
 }
@@ -594,7 +663,7 @@ async function callLLM(system, history, onTok){
   let url=ep, headers={'Content-Type':'application/json'}, body;
   if(API.provider==='openai'){
     headers['Authorization']='Bearer '+API.key;
-    body={model:API.model,stream:true,messages:[{role:'system',content:system}].concat(history.map(m=>({role:m.role,content:m.text})))};
+    body={model:API.model,stream:true,stream_options:{include_usage:true},messages:[{role:'system',content:system}].concat(history.map(m=>({role:m.role,content:m.text})))};
   } else if(API.provider==='anthropic'){
     headers['x-api-key']=API.key; headers['anthropic-version']='2023-06-01';
     headers['anthropic-dangerous-direct-browser-access']='true';
@@ -607,6 +676,7 @@ async function callLLM(system, history, onTok){
   const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
   if(!res.ok){ const t=await res.text().catch(()=>''); throw new Error('HTTP '+res.status+' '+t.slice(0,300)); }
   const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+  const usage={inTok:0, outTok:0};
   while(true){
     const {value,done}=await reader.read(); if(done)break;
     buf+=dec.decode(value,{stream:true});
@@ -618,14 +688,27 @@ async function callLLM(system, history, onTok){
       if(data==='[DONE]')continue;
       let obj; try{obj=JSON.parse(data);}catch(e){continue;}
       const t=extractTok(obj); if(t)onTok(t);
+      grabUsage(obj, usage);
     }
   }
+  return usage;
 }
 function extractTok(o){
-  if(API.provider==='openai'){ try{return o.choices[0].delta.content||'';}catch(e){return '';} }
+  if(API.provider==='openai'){ try{return (o.choices&&o.choices[0]&&o.choices[0].delta.content)||'';}catch(e){return '';} }
   if(API.provider==='anthropic'){ if(o.type==='content_block_delta'&&o.delta&&o.delta.type==='text_delta')return o.delta.text; return ''; }
   if(API.provider==='gemini'){ try{return o.candidates[0].content.parts.map(p=>p.text||'').join('');}catch(e){return '';} }
   return '';
+}
+// 스트림에서 토큰 usage 수집(프로바이더별)
+function grabUsage(o, u){
+  try{
+    if(API.provider==='openai'){ if(o.usage){ u.inTok=o.usage.prompt_tokens||u.inTok; u.outTok=o.usage.completion_tokens||u.outTok; } }
+    else if(API.provider==='anthropic'){
+      if(o.type==='message_start'&&o.message&&o.message.usage){ u.inTok=o.message.usage.input_tokens||u.inTok; u.outTok=o.message.usage.output_tokens||u.outTok; }
+      if(o.type==='message_delta'&&o.usage){ u.outTok=o.usage.output_tokens||u.outTok; }
+    }
+    else if(API.provider==='gemini'){ if(o.usageMetadata){ u.inTok=o.usageMetadata.promptTokenCount||u.inTok; u.outTok=o.usageMetadata.candidatesTokenCount||u.outTok; } }
+  }catch(e){}
 }
 async function mockLLM(system,history,onTok){
   const last=(history[history.length-1]||{}).text||'';
@@ -654,6 +737,7 @@ function show(v){
   if(v==='status')renderStatus();
   if(v==='equip')renderEquip();
   if(v==='wiki')ensureWiki();
+  if(v==='play')renderUsage();
 }
 let wikiLoaded=false;
 function ensureWiki(){
@@ -799,9 +883,12 @@ async function turn(text){
   const u=document.createElement('div'); u.className='msg u';
   u.innerHTML='<div class="bub">'+esc(text)+'</div>'; root.appendChild(u);
   const bub=appendAssistant(); let acc='';   // 생성 중엔 마법진 로더, 본문은 완료 후 일괄 표출
+  const histForCall = convo.slice();          // 이번 입력 시점의 히스토리(분해용)
   const sys=assembleContext();
+  const segSnap = Object.assign({}, PROMPT_SEGS);  // 분해 스냅샷
+  let usage=null;
   try{
-    await callLLM(sys, convo, t=>{ acc+=t; root.scrollTop=root.scrollHeight; });
+    usage = await callLLM(sys, convo, t=>{ acc+=t; root.scrollTop=root.scrollHeight; });
   }catch(e){ bub.innerHTML='<span style="color:#e0a35c">[호출 오류] '+esc(e.message)+'</span>'; busy=false;
     document.getElementById('sendBtn').disabled=false; return; }
   const {clean,deltas}=extractState(acc);
@@ -810,8 +897,64 @@ async function turn(text){
   const rec=firstSentence(clean);
   if(rec){ W.recap=W.recap||[]; W.recap.push(rec); if(W.recap.length>8) W.recap.shift(); }
   if(deltas.length){ mutate(deltas); renderRail(); }
+  accountTurn(segSnap, histForCall, acc, usage);
   saveRun();
   busy=false; document.getElementById('sendBtn').disabled=false;
+}
+/* 턴 토큰·비용 회계 + 세피로트 분해 */
+function accountTurn(segs, hist, outText, usage){
+  if(!W) return;
+  // history(최근 대화) 추정 — role별 분리
+  let hUser=0, hAsst=0;
+  hist.forEach(m=>{ const t=estTokens(m.text); if(m.role==='assistant')hAsst+=t; else hUser+=t; });
+  // 세그먼트 추정
+  const segEst={ keter:estTokens(segs.keter), binah:estTokens(segs.binah), tiphereth:estTokens(segs.tiphereth),
+    netzach:estTokens(segs.netzach), hod:estTokens(segs.hod), yesod:estTokens(segs.yesod), malkuth:estTokens(segs.malkuth),
+    hesed:hUser, gevurah:hAsst };
+  let estIn=0; for(const k in segEst) estIn+=segEst[k];
+  const inTok = (usage&&usage.inTok)|| estIn || 1;          // 실제 우선, 없으면 추정
+  const outTok= (usage&&usage.outTok)|| estTokens(outText) || 0;
+  const scale = estIn? inTok/estIn : 1;                      // 추정 비율을 실제 입력 토큰에 맞춤
+  const breakdown = SEPHIROT.map(s=>{ const tok=Math.round((segEst[s.key]||0)*scale);
+    return {key:s.key, name:s.name, sub:s.sub, src:s.src, color:s.color, why:s.why, tok}; });
+  const totIn = breakdown.reduce((a,b)=>a+b.tok,0)||inTok;
+  breakdown.forEach(b=>b.pct=Math.round(b.tok/totIn*1000)/10);
+  const c = cost(inTok,outTok,API.model);
+  const u = W.usage || (W.usage={runIn:0,runOut:0,runKRW:0,turns:0});
+  u.lastIn=inTok; u.lastOut=outTok; u.lastKRW=c; u.lastBreakdown=breakdown; u.lastModel=API.model;
+  u.runIn+=inTok; u.runOut+=outTok; u.runKRW+=c; u.turns++;
+  renderUsage();
+}
+function renderUsage(){
+  const el=document.getElementById('hud'); if(!el||!W) return;
+  const u=W.usage; if(!u||!u.turns){ el.innerHTML='<span class="muted" style="font-size:11.5px">아직 소모된 억지력이 없습니다 — 첫 응답 후 표시됩니다.</span>'; return; }
+  const mock=API.provider==='mock';
+  const tcost=mock?' · 시연 ₩0':' ('+krw(u.lastKRW)+')';
+  const rcost=mock?' · ₩0':' ('+krw(u.runKRW)+')';
+  el.innerHTML='<span class="hud-i">이번 턴 ▸ <b>'+qlip(u.lastIn+u.lastOut)+'</b>'+tcost+'</span>'+
+    '<span class="hud-sep">·</span><span class="hud-i">이번 회차 ▸ <b>'+qlip(u.runIn+u.runOut)+'</b>'+rcost+'</span>'+
+    '<button class="qbtn hud-btn" id="qlipBtn">⛧ 소모 억지력 보기 (세부)</button>';
+  const b=document.getElementById('qlipBtn'); if(b) b.onclick=openQlip;
+}
+function openQlip(){
+  const u=W&&W.usage; const bd=(u&&u.lastBreakdown)||[];
+  const box=document.getElementById('qlipBody');
+  if(!bd.length){ box.innerHTML='<p class="muted">아직 분석할 입력이 없습니다.</p>'; }
+  else{
+    const tot=bd.reduce((a,x)=>a+x.tok,0)||1;
+    // 도넛(conic-gradient)
+    let acc=0, stops=[];
+    bd.forEach(x=>{ const p=x.tok/tot*100; stops.push(x.color+' '+acc.toFixed(2)+'% '+(acc+p).toFixed(2)+'%'); acc+=p; });
+    const donut='<div class="donut" style="background:conic-gradient('+stops.join(',')+')"><div class="donut-h"><b>'+qlip(u.lastIn)+'</b><span>입력 토큰</span></div></div>';
+    const rows=bd.map(x=>'<div class="qrow"><span class="swatch" style="background:'+x.color+'"></span>'+
+      '<div class="qmain"><div class="qtop"><b>'+esc(x.name)+'</b> <span class="qsub">'+esc(x.sub)+'</span>'+
+      '<span class="qnum">'+x.tok.toLocaleString('ko-KR')+' <span class="qpct">'+x.pct+'%</span></span></div>'+
+      '<div class="qsrc">'+esc(x.src)+'</div><div class="qwhy">'+esc(x.why)+'</div></div></div>').join('');
+    box.innerHTML='<div class="qlip-head">'+donut+'<div class="qlip-cap">입력 토큰 상세 — 세피로트 분해<br><span class="muted">모델 '+esc(u.lastModel||API.model)+' · 출력 '+qlip(u.lastOut)+'</span></div></div>'+
+      '<div class="qlist">'+rows+'</div>'+
+      '<p class="muted" style="font-size:11px;margin-top:10px">프롬프트 버전·추정 방식에 따라 상세 토큰에 차이가 발생할 수 있습니다. (총량은 API usage, 구간 비율은 추정)</p>';
+  }
+  document.getElementById('qlipModal').classList.add('on');
 }
 /* 빠른 액션: 상황묘사 — 플레이어 입력 없이 장면을 이어 묘사 */
 function quickNarrate(){
@@ -827,7 +970,8 @@ async function suggestReplies(){
   let out='';
   try{
     if(API.provider==='mock'){ out='- 조심스럽게 다가가 말을 건다\n- 한 걸음 물러서 상황을 살핀다\n- 손을 내밀어 그녀를 돕는다'; }
-    else { await callLLM(sys, convo.concat([{role:'user',text:'(추천 답변 후보 3개만)'}]), t=>{ out+=t; }); }
+    else { const u=await callLLM(sys, convo.concat([{role:'user',text:'(추천 답변 후보 3개만)'}]), t=>{ out+=t; });
+      if(u&&W&&W.usage){ W.usage.runIn+=(u.inTok||0); W.usage.runOut+=(u.outTok||0); W.usage.runKRW+=cost(u.inTok,u.outTok,API.model); renderUsage(); } }
   }catch(e){ box.innerHTML='<span style="color:#e0a35c;font-size:12px">[추천 실패] '+esc(e.message)+'</span>'; return; }
   const opts=out.split(/\n/).map(s=>s.replace(/^[\s\-*•·\d.)]+/,'').trim()).filter(Boolean).slice(0,3);
   box.innerHTML='';
@@ -1069,6 +1213,7 @@ function boot(){
   document.getElementById('navStart').onclick=()=>{show('start');renderStart();};
   document.getElementById('btnSettings').onclick=openSettings;
   document.getElementById('setClose').onclick=()=>document.getElementById('modal').classList.remove('on');
+  document.getElementById('qlipClose').onclick=()=>document.getElementById('qlipModal').classList.remove('on');
   document.getElementById('setSave').onclick=saveSettings;
   // 고급(직접 입력) 필드 → 드래프트 동기화
   document.getElementById('setProvider').onchange=function(){ SETDRAFT.provider=this.value; SETDRAFT.endpoint=''; SETDRAFT.key=(API.keys&&API.keys[this.value])||''; syncAdvFields(); syncKeyField(); renderModelList(); };
@@ -1176,6 +1321,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
             <button class="qbtn" id="qNarrate" title="플레이어 입력 없이 장면을 이어 묘사">✶ 상황묘사</button>
             <button class="qbtn" id="qSuggest" title="취할 만한 행동 후보 제안">✦ 추천답변</button>
           </div>
+          <div id="hud" class="hud"></div>
           <div class="inwrap">
             <textarea id="userInput" class="tin" placeholder="행동이나 대사를 입력… (Enter 전송 · Shift+Enter 줄바꿈)"></textarea>
             <button class="btn" id="sendBtn">전송</button>
@@ -1220,6 +1366,15 @@ HTML_SHELL = r"""<!DOCTYPE html>
       <iframe id="wikiFrame" title="마법소녀 세계관 위키"></iframe>
     </section>
   </main>
+</div>
+
+<!-- 세피로트(클리포트 억지력) 모달 -->
+<div id="qlipModal">
+  <div class="mbox">
+    <span class="close" id="qlipClose">×</span>
+    <h3>클리포트 억지력 <span style="font-size:13px;color:var(--ink-faint);font-weight:400">세피로트 분해</span></h3>
+    <div id="qlipBody"></div>
+  </div>
 </div>
 
 <!-- 설정 모달 -->
