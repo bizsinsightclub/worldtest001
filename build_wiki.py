@@ -26,8 +26,23 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOREBOOK = os.path.join(HERE, "lorebook_export.json")
-IMG_DIR = r"C:\Users\User\Documents\카카오톡 받은 파일\collected_chars"
 OUT_HTML = os.path.join(HERE, "lorebook-wiki.html")
+
+# 캐릭터 이미지 폴더: 패키지 동봉 ./images 를 우선, 없으면 원본 수집 폴더로 폴백.
+_IMG_CANDIDATES = [
+    os.path.join(HERE, "images"),
+    r"C:\Users\User\Documents\카카오톡 받은 파일\collected_chars",
+]
+
+
+def _img_dir():
+    for d in _IMG_CANDIDATES:
+        if os.path.isdir(d) and any(f.lower().endswith(".webp") for f in os.listdir(d)):
+            return d
+    return _IMG_CANDIDATES[-1]
+
+
+IMG_DIR = _img_dir()
 
 # ---------------------------------------------------------------------------
 # 1. 로드 & 폴더 그룹핑

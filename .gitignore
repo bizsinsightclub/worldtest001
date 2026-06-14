@@ -25,3 +25,8 @@ _rel_work/
 
 # 전투 사례 중간 산출물
 _battle_work/
+images/
+_dist/
+*.zip
+lorebook-wiki-edited.html
+_pkgtest/

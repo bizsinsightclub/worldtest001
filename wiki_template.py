@@ -362,10 +362,47 @@ rt{font-size:.5em;color:var(--gold);letter-spacing:.04em;font-weight:600}
 .battle-read .scene{font-family:'Iowan Old Style','Palatino Linotype','Nanum Myeongjo',Palatino,Georgia,serif;
   font-size:15.5px;line-height:2.0;color:var(--ink);white-space:pre-wrap;margin-top:16px;
   border-top:1px solid var(--line);padding-top:18px}
+
+/* ---- 관리자/편집 모드 ---- */
+#admintools{margin-left:auto;display:flex;align-items:center;gap:10px}
+#search{margin-left:14px !important}
+#adminToggle{display:flex;align-items:center;gap:6px;background:#161009;border:1px solid var(--line);
+  color:var(--ink-dim);padding:7px 13px;border-radius:18px;cursor:pointer;font-family:inherit;font-size:13px}
+#adminToggle:hover{border-color:var(--gold-deep);color:var(--ink)}
+#adminToggle.on{background:linear-gradient(180deg,#e6c879,#c9a24b);color:#1a1209;border-color:var(--gold);font-weight:700}
+#adminBar{display:none;align-items:center;gap:8px}
+#adminBar .ecount{font-size:12px;color:var(--ink-faint)}
+#adminBar .ecount b{color:var(--gold-bright)}
+#adminBar button{background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
+  padding:6px 12px;border-radius:14px;cursor:pointer;font-family:inherit;font-size:12.5px}
+#adminBar .ab-export{background:linear-gradient(180deg,#e6c879,#c9a24b);color:#1a1209;border-color:var(--gold);font-weight:700}
+#adminBar button:hover{filter:brightness(1.08)}
+body.admin [data-ie]{outline:1px dashed rgba(230,200,121,.45);outline-offset:2px;border-radius:3px;
+  cursor:text;min-width:14px;display:inline-block}
+body.admin [data-ie]:hover{background:rgba(230,200,121,.08)}
+body.admin [data-ie]:focus{outline:1.5px solid var(--gold);background:rgba(230,200,121,.14);color:#fff5e0}
+body.admin h3[data-ie],body.admin h2[data-ie],body.admin p[data-ie]{display:block}
+.srcrow{margin:6px 0 2px}
+.srcbtn{background:rgba(201,162,75,.12);border:1px solid var(--gold-deep);color:var(--gold-bright);
+  font-size:12px;padding:5px 12px;border-radius:14px;cursor:pointer;font-family:inherit}
+.srcbtn:hover{background:rgba(201,162,75,.22)}
+#srcedit{position:fixed;inset:0;background:rgba(6,4,2,.8);z-index:600;display:none;
+  align-items:center;justify-content:center;padding:40px}
+#srcedit.open{display:flex}
+.se-box{background:var(--panel);border:1px solid var(--gold-deep);border-radius:12px;width:min(820px,94vw);
+  max-height:86vh;display:flex;flex-direction:column;box-shadow:var(--shadow)}
+.se-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;
+  border-bottom:1px solid var(--line);color:var(--gold-bright);font-weight:700}
+.se-head button{margin-left:8px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+  padding:7px 16px;border-radius:8px;cursor:pointer;font-family:inherit}
+.se-head #seSave{background:linear-gradient(180deg,#e6c879,#c9a24b);color:#1a1209;border-color:var(--gold);font-weight:700}
+#seArea{flex:1;min-height:50vh;background:#120d07;border:none;color:var(--ink);padding:18px;
+  font-family:'Pretendard',monospace;font-size:14px;line-height:1.7;resize:none;outline:none}
 """
 
 JS = r"""
-const DATA = __DATA__;
+// ===== 데이터 + 편집(관리자) 레이어 =====
+const DATA = JSON.parse(document.getElementById('wikidata').textContent);
 const FACTIONS = {
   rep:{label:'지역 대표',color:'var(--rep)'}, bureau:{label:'마법소녀청·협력',color:'var(--bureau)'},
   trainee:{label:'연습생',color:'var(--trainee)'}, shikoku:{label:'시고쿠 (타마모)',color:'var(--shikoku)'},
@@ -377,6 +414,34 @@ const byId = {};
 DATA.characters.forEach(c=>byId[c.id]=c);
 DATA.guests.forEach(g=>byId[g.id]=g);
 const allCards = DATA.characters.concat(DATA.guests);
+
+// ----- 편집 저장소 (localStorage) -----
+let ADMIN=false, EDITS={};
+try{ EDITS=JSON.parse(localStorage.getItem('wikiEdits')||'{}'); }catch(e){ EDITS={}; }
+function _locate(path){
+  const i1=path.indexOf(':'), i2=path.indexOf(':',i1+1);
+  const t=path.slice(0,i1), id=path.slice(i1+1,i2), field=path.slice(i2+1);
+  let o=null;
+  if(t==='c') o=byId[id];
+  else if(t==='l') o=DATA.lore.find(x=>x.id===id);
+  else if(t==='b') o=(DATA.battles||[]).find(x=>x.id===id);
+  else if(t==='e') o=DATA.events.find(x=>x.id===id);
+  else if(t==='h') o=DATA.history[+id];
+  return {o,field};
+}
+function applyEditToData(path,val){ const {o,field}=_locate(path); if(o) o[field]=val; }
+Object.keys(EDITS).forEach(p=>applyEditToData(p,EDITS[p]));   // 저장된 편집 반영
+function setEdit(path,val){
+  const {o,field}=_locate(path); if(!o) return;
+  if((o[field]||'')===val){ return; }
+  o[field]=val; EDITS[path]=val;
+  try{ localStorage.setItem('wikiEdits', JSON.stringify(EDITS)); }catch(e){ alert('저장 공간이 가득 찼습니다. 일부 편집이 저장되지 않을 수 있습니다.'); }
+  updateEditCount();
+}
+function updateEditCount(){ const el=document.getElementById('editCount'); if(el) el.textContent=Object.keys(EDITS).length; }
+function ieAttr(path){ return ADMIN?` data-ie="${path}"`:''; }   // 인라인 편집 표시
+// 관리자일 때만 보이는 원문(소스) 편집 버튼
+function srcBtn(path,label){ return ADMIN?`<button class="srcbtn" onclick="editSource('${path}','${esc(label||'원문')}')">✎ 원문 편집</button>`:''; }
 
 function img(prefix,kind){
   const im = DATA.images[prefix];
@@ -477,6 +542,7 @@ function show(view){
   if(view==='graph') initGraph();
   if(view==='map') initMap();
   if(view==='timeline') observeTimeline();
+  wireInline();
 }
 
 /* ---------- 도감 ---------- */
@@ -524,7 +590,8 @@ function renderDetail(c){
   const hasM = c.imgPrefix && DATA.images[c.imgPrefix] && DATA.images[c.imgPrefix].m;
   const src = img(c.imgPrefix,imgKind);
   const star = c.stars?'★'.repeat(Math.min(c.stars,6)):'';
-  const stat=(l,v)=> v?`<div class="stat"><div class="l">${l}</div><div class="v">${esc(v)}</div></div>`:'';
+  const P=f=>'c:'+c.id+':'+f;
+  const stat=(l,v,f)=> (v||ADMIN)?`<div class="stat"><div class="l">${l}</div><div class="v"${f?ieAttr(P(f)):''}>${esc(v||'')}</div></div>`:'';
   const topName = [c.nameJp,c.nameEn].filter(Boolean).join(' · ');
   root.innerHTML=`
     <div class="dt-hero">
@@ -537,21 +604,22 @@ function renderDetail(c){
       <div class="fade"></div>
     </div>
     <div class="dt-body">
-      <div class="dt-name">${esc(c.title)}${topName?`<span class="sub">${esc(topName)}</span>`:''}</div>
+      <div class="dt-name"><span${ieAttr(P('title'))}>${esc(c.title)}</span>${topName?`<span class="sub">${esc(topName)}</span>`:''}</div>
       ${c.stage?`<div class="dt-stage">${ruby(stageBase(c.stage),stageRuby(c))}</div>`:''}
       <span class="faction-chip fc-${c.faction}">${FACTIONS[c.faction].label}</span>
       <div class="statgrid">
-        ${stat('랭크',c.rankLabel)}${stat('세대',c.generation)}
-        ${stat('담당 지구',c.districtKr||c.districtNorm||c.district)}${stat('나이',c.age)}
-        ${stat('종족',c.species)}${stat('신장',c.height)}
-        ${stat('사무소',c.office)}${stat('성격유형',mbti(c.personality))}
+        ${stat('랭크',c.rankLabel,'rankLabel')}${stat('세대',c.generation,'generation')}
+        ${stat('담당 지구',c.districtKr||c.districtNorm||c.district,'districtKr')}${stat('나이',c.age,'age')}
+        ${stat('종족',c.species,'species')}${stat('신장',c.height,'height')}
+        ${stat('사무소',c.office,'office')}${stat('성격유형',mbti(c.personality))}
       </div>
-      ${c.staff?`<div class="stat" style="border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
-        <div class="l">고유 마법 지팡이</div><div class="v">${esc(c.staff)}</div></div>`:''}
-      ${c.tagline?`<div class="tagline">"${esc(c.tagline)}"</div>`:''}
-      ${c.raw?`<button class="detailbtn" onclick="openModal('${c.id}')">상세 설명 펼쳐보기</button>`:''}
+      ${(c.staff||ADMIN)?`<div class="stat" style="border:1px solid var(--line);border-radius:8px;margin-bottom:12px">
+        <div class="l">고유 마법 지팡이</div><div class="v"${ieAttr(P('staff'))}>${esc(c.staff||'')}</div></div>`:''}
+      ${(c.tagline||ADMIN)?`<div class="tagline">"<span${ieAttr(P('tagline'))}>${esc(c.tagline||'')}</span>"</div>`:''}
+      ${c.raw?`<button class="detailbtn" onclick="openModal('${c.id}')">상세 설명 ${ADMIN?'· 편집':'펼쳐보기'}</button>`:''}
     </div>`;
   root.querySelectorAll('.imgtoggle button').forEach(b=>b.onclick=()=>{imgKind=b.dataset.k;renderDetail(c);});
+  wireInline();
 }
 function stageBase(s){return s.replace(/\(.*?\)/,'').trim();}
 function stageRuby(c){
@@ -568,33 +636,38 @@ function openModal(id){
       <div><h2 style="margin:0;color:var(--gold-bright);font-size:24px">${esc(c.title)}</h2>
       <div style="color:var(--ink-faint);font-size:13px">${esc([c.nameJp,c.nameEn].filter(Boolean).join(' · '))}</div>
       ${c.stage?`<div style="color:var(--gold);margin-top:4px">${esc(c.stage)}</div>`:''}</div></div>
+    ${ADMIN?`<div class="srcrow">${srcBtn('c:'+c.id+':raw','프로필 본문')}</div>`:''}
     <div class="md">${mdRender(c.raw)}</div>`;
   document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');}
 
 /* ---------- 로어 페이지 ---------- */
+let curLore=null;
 function renderLore(id){
   const p=DATA.lore.find(x=>x.id===id)||DATA.lore[0];
+  curLore=p.id;
   document.getElementById('loreBody').innerHTML=
     `<div class="lore-wrap"><div class="page-kicker">${esc(p.folder||'세계 설정')}</div>
-     <h1 class="page-title">${esc(p.title)}</h1><div class="md">${mdRender(p.raw)}</div></div>`;
+     <h1 class="page-title"><span${ieAttr('l:'+p.id+':title')}>${esc(p.title)}</span></h1>
+     ${ADMIN?`<div class="srcrow">${srcBtn('l:'+p.id+':raw','세계 설정 본문')}</div>`:''}
+     <div class="md">${mdRender(p.raw)}</div></div>`;
   document.querySelectorAll('#loreNav a').forEach(a=>a.classList.toggle('active',a.dataset.id===p.id));
-  show('lore');
+  show('lore'); wireInline();
 }
 
 /* ---------- 연표 (세로 · 현재→과거 · 각인) ---------- */
 function renderTimeline(){
-  const rows=DATA.history.slice().reverse().map((h,i)=>`
-    <div class="tl-row ${i===0?'present':''}"><div class="node"></div>
-      <div class="when">${esc(h.t)}</div><h3>${esc(h.title)}</h3>
-      <div class="en">${esc(h.sub)}</div><p>${esc(h.desc)}</p></div>`).join('');
+  const rows=DATA.history.slice().reverse().map((h,ri)=>{const i=DATA.history.length-1-ri;return `
+    <div class="tl-row ${ri===0?'present':''}"><div class="node"></div>
+      <div class="when"${ieAttr('h:'+i+':t')}>${esc(h.t)}</div><h3${ieAttr('h:'+i+':title')}>${esc(h.title)}</h3>
+      <div class="en">${esc(h.sub)}</div><p${ieAttr('h:'+i+':desc')}>${esc(h.desc)}</p></div>`;}).join('');
   document.getElementById('view-timeline').innerHTML=`<div class="pad">
     <div class="page-kicker">역사 연표 · Chronicle</div>
     <h1 class="page-title">시고쿠의 비극과 마법소녀 시대</h1>
     <div class="tl-hint">↓ 아래로 내려갈수록 과거로 거슬러 올라갑니다 — 지나간 시간이 불에 새겨집니다.</div>
     <div class="tl-v">${rows}</div></div>`;
-  observeTimeline();
+  observeTimeline(); wireInline();
 }
 let tlObserver=null;
 function observeTimeline(){
@@ -620,6 +693,7 @@ function renderCalendar(){
     <div class="page-kicker">연간 고정 이벤트 · Annual Calendar</div>
     <h1 class="page-title">사계의 행사</h1>
     <div class="calwheel" style="margin-top:18px">${cal}</div></div>`;
+  wireInline();
 }
 function plain(raw){
   const lines=(raw||'').split('\n').filter(l=>l.trim() && !/^#{1,4}\s/.test(l));
@@ -643,6 +717,7 @@ function renderBattles(){
     <div class="tl-hint">세계관의 전투 작법을 따라 쓴 등장인물 간 전투 장면입니다. 카드를 눌러 읽어보세요.</div>
     <div class="battle-grid">${cards}</div></div>`;
 }
+function bP(bt,f){ return 'b:'+bt.id+':'+f; }
 function openBattle(id){
   const bt=DATA.battles.find(x=>x.id===id); if(!bt) return;
   const chips=bt.participants.map(p=>{
@@ -652,18 +727,22 @@ function openBattle(id){
     return `<span class="bchip" style="cursor:default"><span class="anon">怪</span>${esc(p.name)}</span>`;
   }).join('');
   document.getElementById('modalBody').innerHTML=`<button class="modal-close" onclick="closeModal()">×</button>
-    <div class="battle-read"><span class="btype">${esc(bt.type)}</span>
-    <h2>${esc(bt.title)}</h2>
+    <div class="battle-read"><span class="btype"${ieAttr(bP(bt,'type'))}>${esc(bt.type)}</span>
+    <h2${ieAttr(bP(bt,'title'))}>${esc(bt.title)}</h2>
     <div class="bchips">${chips}</div>
+    ${ADMIN?`<div class="srcrow">${srcBtn(bP(bt,'scene'),'전투 장면')} ${srcBtn(bP(bt,'blurb'),'요약')}</div>`:''}
     <div class="scene">${esc(bt.scene)}</div></div>`;
-  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal').classList.add('open'); wireInline();
 }
 function openEvent(id){
   const e=DATA.events.find(x=>x.id===id);
   document.getElementById('modalBody').innerHTML=
     `<button class="modal-close" onclick="closeModal()">×</button>
-     <div class="md" style="padding-top:24px"><div class="md">${mdRender(e.raw)}</div></div>`;
-  document.getElementById('modal').classList.add('open');
+     <div class="md" style="padding-top:24px">
+       <h2 style="color:var(--gold-bright)"${ieAttr('e:'+e.id+':title')}>${esc(e.title)}</h2>
+       ${ADMIN?`<div class="srcrow">${srcBtn('e:'+e.id+':raw','이벤트 본문')}</div>`:''}
+       ${mdRender(e.raw)}</div>`;
+  document.getElementById('modal').classList.add('open'); wireInline();
 }
 
 /* ---------- 관계 그래프 (팩션 클러스터 + 클릭 포커스) ---------- */
@@ -922,8 +1001,81 @@ function pickSearch(type,id){
   else{show('timeline');openEvent(id);}
 }
 
+/* ---------- 관리자/편집 ---------- */
+let TPL_PRE='', TPL_POST='';
+function captureTemplate(){
+  const full='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  const open=full.indexOf('<script id="wikidata"');
+  const gt=full.indexOf('>',open);
+  const close=full.indexOf('<\/script>',gt);
+  if(open<0||gt<0||close<0){ return; }
+  TPL_PRE=full.slice(0,gt+1);
+  TPL_POST=full.slice(close);
+}
+function wireInline(){
+  document.querySelectorAll('[data-ie]').forEach(el=>{
+    el.setAttribute('contenteditable', ADMIN?'true':'false');
+    if(el.dataset.wired) return;
+    el.dataset.wired='1';
+    el.addEventListener('blur',()=>setEdit(el.dataset.ie, el.textContent.trim()));
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();el.blur();} });
+  });
+}
+function rerenderAll(){
+  renderCollection();
+  if(selId) renderDetail(byId[selId]);
+  renderTimeline(); renderCalendar(); renderBattles();
+  const active=document.querySelector('.view.active');
+  if(active && active.id==='view-lore' && curLore) renderLore(curLore);
+  wireInline();
+}
+function toggleAdmin(){
+  ADMIN=!ADMIN;
+  document.body.classList.toggle('admin',ADMIN);
+  document.getElementById('adminBar').style.display=ADMIN?'flex':'none';
+  document.getElementById('adminToggle').classList.toggle('on',ADMIN);
+  rerenderAll();
+}
+let _seCtx=null;
+function editSource(path,label){
+  const {o,field}=_locate(path); if(!o) return;
+  _seCtx=path;
+  document.getElementById('seTitle').textContent=(label||'원문')+' 편집';
+  document.getElementById('seArea').value=o[field]||'';
+  document.getElementById('srcedit').classList.add('open');
+  document.getElementById('seArea').focus();
+}
+function saveSource(){
+  if(!_seCtx) return;
+  const p=_seCtx;
+  setEdit(p, document.getElementById('seArea').value);
+  _seCtx=null; document.getElementById('srcedit').classList.remove('open');
+  rerenderAll();
+  // 모달 본문이면 다시 열어 갱신
+  const t=p.split(':')[0], id=p.split(':')[1];
+  if(document.getElementById('modal').classList.contains('open')){
+    if(t==='c') openModal(id); else if(t==='e') openEvent(id); else if(t==='b') openBattle(id);
+  }
+}
+function closeSource(){ _seCtx=null; document.getElementById('srcedit').classList.remove('open'); }
+function exportHtml(){
+  if(!TPL_PRE){ alert('내보내기 준비가 되지 않았습니다.'); return; }
+  const json=JSON.stringify(DATA).replace(/<\//g,'<\\/');
+  const html=TPL_PRE+json+TPL_POST;
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='lorebook-wiki-edited.html'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+function resetEdits(){
+  if(!Object.keys(EDITS).length){ alert('편집 내역이 없습니다.'); return; }
+  if(!confirm('모든 편집('+Object.keys(EDITS).length+'건)을 초기화합니다. 계속할까요?')) return;
+  EDITS={}; localStorage.removeItem('wikiEdits'); location.reload();
+}
+
 /* ---------- 부트 ---------- */
 function boot(){
+  captureTemplate();
   document.body.querySelector('#noise-src');
   // 사이드바 로어 네비
   const folders={};
@@ -948,19 +1100,30 @@ function boot(){
   document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{
     if(b.dataset.view==='lore'){renderLore(DATA.lore[0].id);}else{show(b.dataset.view);}});
   document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeSource();}});
+  // 관리자/편집 핸들러
+  document.getElementById('adminToggle').onclick=toggleAdmin;
+  document.getElementById('btnExport').onclick=exportHtml;
+  document.getElementById('btnReset').onclick=resetEdits;
+  document.getElementById('seSave').onclick=saveSource;
+  document.getElementById('seCancel').onclick=closeSource;
+  document.getElementById('srcedit').onclick=e=>{if(e.target.id==='srcedit')closeSource();};
+  updateEditCount();
 }
 boot();
 """
 
 
 def page(data_json, mappos_json, mapgeo_json="null"):
-    html = HTML_SHELL
     css = CSS.replace("__NOISE__", NOISE)
-    js = (JS.replace("__DATA__", data_json)
-            .replace("__MAPPOS__", mappos_json)
+    js = (JS.replace("__MAPPOS__", mappos_json)
             .replace("__MAPGEO__", mapgeo_json))
-    html = html.replace("/*__CSS__*/", css).replace("/*__JS__*/", js)
+    # DATA 는 별도 <script id="wikidata"> 로 주입 (내보내기 시 교체 용이).
+    # 스크립트 종료 태그 오인 방지를 위해 </ 이스케이프.
+    safe_data = data_json.replace("</", "<\\/")
+    html = (HTML_SHELL.replace("/*__CSS__*/", css)
+            .replace("/*__JS__*/", js)
+            .replace("__DATA__", safe_data))
     return html
 
 
@@ -976,6 +1139,15 @@ HTML_SHELL = r"""<!DOCTYPE html>
 <div id="app">
   <header id="topbar">
     <div class="brand">마법소녀 세계관 위키<small>Magical Girl Lorebook</small></div>
+    <div id="admintools">
+      <button id="adminToggle" title="편집(관리자) 모드 — 텍스트를 직접 수정하고 HTML로 내보낼 수 있습니다">
+        <span class="ic">🔑</span><span class="lbl">편집</span></button>
+      <div id="adminBar">
+        <span class="ecount"><b id="editCount">0</b> 변경</span>
+        <button id="btnExport" class="ab-export" title="편집을 반영한 HTML 파일 저장">HTML 내보내기</button>
+        <button id="btnReset" class="ab-reset" title="모든 편집 초기화">초기화</button>
+      </div>
+    </div>
     <div id="search">
       <span class="ic">⌕</span>
       <input id="searchInput" placeholder="캐릭터 · 설정 · 이벤트 검색…" autocomplete="off">
@@ -1026,6 +1198,12 @@ HTML_SHELL = r"""<!DOCTYPE html>
   </main>
 </div>
 <div id="modal"><div class="modal-box" id="modalBody"></div></div>
+<div id="srcedit"><div class="se-box">
+  <div class="se-head"><span id="seTitle">원문 편집</span>
+    <div><button id="seSave">저장</button><button id="seCancel">취소</button></div></div>
+  <textarea id="seArea" spellcheck="false"></textarea>
+</div></div>
+<script id="wikidata" type="application/json">__DATA__</script>
 <script>/*__JS__*/</script>
 </body>
 </html>
