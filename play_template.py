@@ -92,6 +92,8 @@ h2.title{font-size:26px;margin:.1em 0 .5em;color:var(--gold-bright)}
 .youmode button{font-family:inherit;cursor:pointer;background:#18092a;border:1px solid var(--line);color:var(--ink-dim);
   padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600}
 .youmode button.on{background:linear-gradient(180deg,#3a1a50,#2a0f38);border-color:var(--gold-deep);color:var(--gold-bright)}
+.youmode-desc{text-align:center;font-size:12.5px;color:var(--ink-dim);margin:0 0 16px;line-height:1.55}
+.youmode-desc b{color:var(--gold-bright);font-weight:700}
 .persona-panel{margin:0 0 14px}
 .persona-panel.hide{display:none}
 .psn-chips{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
@@ -758,7 +760,7 @@ function assembleContext(){
 }
 // 세피로트 노드 정의(표시 순서·색·실제 출처 라벨·비유)
 const SEPHIROT = [
-  {key:'keter', name:'케테르 & 호크마', sub:'왕관·지혜', src:'등장인물 캐논 — 동행/장면 프로필', color:'#e0913f', why:'모든 것이 시작되는 무한의 원천. 세계관과 인물의 방향성을 결정하는 절대적 근간.'},
+  {key:'keter', name:'케테르 & 호크마', sub:'왕관·지혜', src:'등장인물 원본 — 동행/장면 프로필', color:'#e0913f', why:'모든 것이 시작되는 무한의 원천. 세계관과 인물의 방향성을 결정하는 절대적 근간.'},
   {key:'binah', name:'비나', sub:'이해', src:'시스템 프롬프트 — 문체·서사 규칙', color:'#9bb7e8', why:'상위 에너지를 구체적 형태·구조로 빚는 이성. 설정을 실행 가능한 규칙으로 구조화한다.'},
   {key:'hesed', name:'헤세드', sub:'자비', src:'최근 대화 · 당신의 입력', color:'#e87aa6', why:'끊임없이 확장되는 상호작용의 흐름. 유저가 더해가는 맥락.'},
   {key:'gevurah', name:'게부라', sub:'엄격·힘', src:'최근 대화 · 서사 응답 누적', color:'#d2705a', why:'콘텍스트를 제한·조율하는 힘. 누적된 서사가 현재를 묶는다.'},
@@ -963,6 +965,10 @@ function updateStartBtn(){
 function setYouMode(m){ if(youMode===m)return; youMode=m; renderStart(); }
 function renderYouMode(){
   document.querySelectorAll('#youMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===youMode));
+  const desc=document.getElementById('youModeDesc');
+  if(desc) desc.innerHTML = youMode==='persona'
+    ? '<b>관측자</b> — 내가 만든 페르소나가 주인공이 됩니다. 세계관 밖에서 들어온 ‘나’로 플레이.'
+    : '<b>마기아</b> — 로어 속 세계관에 실재하는 마법소녀가 주인공이 됩니다.';
   const h=document.getElementById('pickHint');
   if(h) h.textContent = youMode==='persona'
     ? '페르소나를 만들거나 고른 뒤, 팩션에서 동행(최대 3)을 선택하세요.'
@@ -1723,6 +1729,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
             <button type="button" data-m="persona">✦ 관측자</button>
             <button type="button" data-m="canon">마기아</button>
           </div>
+          <p class="youmode-desc" id="youModeDesc"></p>
           <div id="personaPanel" class="persona-panel"></div>
           <div class="pickslots" id="pickSlots"></div>
           <div class="ftabs" id="factionTabs"></div>
