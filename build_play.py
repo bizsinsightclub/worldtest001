@@ -52,6 +52,68 @@ import play_template
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_HTML = os.path.join(HERE, "lorebook-play.html")
 
+# 로어 요약(네짜 주입용) — 캐논 한국어를 결정적으로 추출. LLM·외부 의존 0, tonemanner 무관(원문 verbatim).
+_LORE_SENT_END = re.compile(r"(?<=[다요죠음함])\.|(?<=[다요죠음함])\s*$|[。.](?=\s|$)")
+
+
+def lore_summary(raw, limit=300):
+    """로어 raw → 선두 문단 추출 요약(~limit자). 마크다운 헤딩/이미지/불릿 마커 정리,
+    문장 경계에서 컷. 인물 dossier가 아닌 *로어 문서*만 대상 → 캐릭터 보이스 무관."""
+    if not raw:
+        return ""
+    txt = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", raw)        # 이미지 md 제거
+    lines = []
+    for ln in txt.replace("\r", "").split("\n"):
+        s = ln.strip()
+        if not s:
+            if lines and lines[-1] != "":
+                lines.append("")
+            continue
+        s = re.sub(r"^#{1,6}\s*", "", s)                  # 헤딩 마커
+        s = re.sub(r"^[-*•]\s*", "", s)                   # 불릿 마커
+        s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)          # 굵게
+        lines.append(s)
+    body = " ".join(x for x in lines if x).strip()
+    body = re.sub(r"\s{2,}", " ", body)
+    if len(body) <= limit:
+        return body
+    cut = body[:limit]
+    # 마지막 문장 종결("…다." 등) 또는 마침표에서 자른다
+    m = list(re.finditer(r"[.。](?:\s|$)", cut))
+    if m and m[-1].end() >= limit * 0.5:
+        return cut[: m[-1].end()].strip()
+    return cut.rstrip() + "…"
+
+
+# 코어 로어(항상 주입·캐시 블록) 후보 — 마법소녀 '체계' 문서 우선.
+_CORE_TITLE_PRIMARY = ("마법소녀",)
+_CORE_TITLE_EXCLUDE = ("청", "목록", "공방", "가련", "사무소", "거부회")
+
+
+def pick_core_lore(lore_pages):
+    """세계 규칙의 근간이 되는 로어 1개 선정(없으면 None)."""
+    cands = []
+    for p in lore_pages:
+        t = (p.get("title") or "")
+        if any(k in t for k in _CORE_TITLE_PRIMARY) and not any(x in t for x in _CORE_TITLE_EXCLUDE):
+            cands.append(p)
+    if not cands:
+        # 폴백: '마법소녀'를 키/제목에 포함하는 첫 문서
+        for p in lore_pages:
+            blob = (p.get("title") or "") + " " + " ".join(p.get("keys") or [])
+            if "마법소녀" in blob:
+                cands.append(p)
+                break
+    return cands[0]["id"] if cands else None
+
+
+def annotate_lore(canon):
+    """canon.lore[*]에 summary 부여 + canon.coreLoreId 선정 (play 전용, 원본 불변)."""
+    for p in canon.get("lore", []):
+        p["summary"] = lore_summary(p.get("raw", ""))
+    canon["coreLoreId"] = pick_core_lore(canon.get("lore", []))
+    return canon
+
 # 16개 지구 + 시고쿠 (홋카이도는 단일 통합)
 DISTRICTS = [
     "Tokyo", "Osaka", "Kyoto", "Northern Kyushu", "Southern Kyushu",
@@ -139,6 +201,7 @@ def seed_world(canon, flag_catalog):
 def build(report_only=False):
     ds = build_wiki.build_dataset()
     canon = build_wiki.build_js_data(ds)
+    annotate_lore(canon)   # 로어 요약 + 코어 로어 선정 (네짜 주입용)
 
     bands = load_json("affinity_bands.json", {})
     flag_catalog = load_json("flag_catalog.json", {})
@@ -165,6 +228,9 @@ def build(report_only=False):
     print("모듈: %d (복장/무기 파생 %d + 저작 %d)" % (len(modules), len(derived), len(authored)))
     print("플래그:", len(assets["flags"]), "| 밴드:", len(assets["bands"]))
     print("지구:", len(DISTRICTS), "| 지역대표 통제 지구:", seeded)
+    _core = canon.get("coreLoreId")
+    _coret = next((p.get("title") for p in canon.get("lore", []) if p.get("id") == _core), None)
+    print("로어:", len(canon.get("lore", [])), "| 코어 로어:", _coret or "(없음)")
     if report_only:
         return
 
