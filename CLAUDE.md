@@ -1,6 +1,6 @@
 # CLAUDE.md — 마법소녀 세계관 위키 프로젝트
 
-/ 이 파일은 이 저장소에서 작업할 때의 기준 규약이다. 작업 전 [design.md](design.md)·[tonemanner.md](tonemanner.md)·[lesson.md](lesson.md)도 함께 참고할 것. 인터랙티브 플랫폼용 월드 스테이트 설계는 [worldstate.md](worldstate.md) 참조.
+/ 이 파일은 이 저장소에서 작업할 때의 기준 규약이다. 작업 전 [design.md](design.md)·[tonemanner.md](tonemanner.md)·[lesson.md](lesson.md)도 함께 참고할 것. 인터랙티브 플랫폼용 월드 스테이트 설계는 [worldstate.md](worldstate.md), 플레이 앱 개발 우선순위는 [roadmap.md](roadmap.md) 참조.
 
 ## 프로젝트란
 
