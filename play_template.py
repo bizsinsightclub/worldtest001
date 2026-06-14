@@ -475,15 +475,44 @@ function issueMemories(){
 }
 
 /* 컨텍스트 조립 (상태 -> 시스템 프롬프트) */
-function charBrief(c){
+function cleanRaw(raw){
+  if(!raw) return '';
+  return raw
+    .replace(/!\[[^\]]*\]\([^)]*\)/g,'')      // 이미지 마크다운 제거
+    .replace(/<img[^>]*>/gi,'')               // HTML 이미지 제거
+    .replace(/\n{3,}/g,'\n\n')                // 빈 줄 축약
+    .trim();
+}
+function charDossier(c){
   const bits=[c.title]; if(c.nameEn)bits.push('('+c.nameEn+')');
-  let s='- '+bits.join(' ');
   const meta=[]; if(c.factionLabel)meta.push(c.factionLabel); if(c.rankLabel)meta.push(c.rankLabel);
   if(c.districtKr)meta.push(c.districtKr); if(c.generation)meta.push(c.generation);
-  if(meta.length)s+=' [ '+meta.join(' · ')+' ]';
-  if(c.personality)s+='\n  성격: '+c.personality;
-  if(c.tagline)s+='\n  요약: '+c.tagline;
+  let head='■ '+bits.join(' '); if(meta.length)head+=' [ '+meta.join(' · ')+' ]';
+  const body=cleanRaw(c.raw);
+  if(body) return head+'\n'+body;
+  // 폴백: raw 없음
+  let s=head;
+  if(c.personality)s+='\n성격: '+c.personality;
+  if(c.tagline)s+='\n요약: '+c.tagline;
   return s;
+}
+/* 최근 대화에 등장한 캐논 인물 자동 감지 (주인공·동행 제외, 최대 4) */
+function detectSceneChars(excludeIds){
+  const ex=new Set(excludeIds||[]);
+  const recent=(convo||[]).slice(-6).map(m=>m.text||'').join('\n');
+  if(!recent.trim()) return [];
+  const hits=[];
+  for(const id in byId){
+    if(ex.has(id)) continue;
+    const c=byId[id]; if(!c) continue;
+    const t=c.title||''; const en=c.nameEn||'';
+    if((t&&t.length>=2&&recent.includes(t))||(en&&en.length>=3&&recent.includes(en))){
+      // 마지막 등장 위치로 최신 우선 정렬
+      hits.push({id, pos:Math.max(recent.lastIndexOf(t), en?recent.lastIndexOf(en):-1)});
+    }
+  }
+  hits.sort((a,b)=>b.pos-a.pos);
+  return hits.slice(0,4).map(h=>h.id);
 }
 function assembleContext(){
   const L=[];
@@ -495,10 +524,14 @@ function assembleContext(){
   L.push('[인물] 프로필은 작업지시서가 아니다 — 인물은 시트에 안 적힌 일도 한다. 체크리스트식 연기 금지. 성격을 나레이터가 설명하지 말고, 작은 반응에서 큰 반응으로 행동·대사를 통해 드러낸다. 반복되는 상호작용으로 인물은 학습하고 변한다(첫 반응 → 적응 → 익숙해짐).');
   L.push('[시점·진행] 2인칭("당신") 시점. 시점 인물이 알 수 없는 것은 서술도 모른다 — 불확실하면 추측형으로 쓴다. 응답은 2~4문단. 사건은 당신의 상호작용으로 점진적으로 전개한다 — 급작스런 새 인물·사건을 억지로 밀어넣지 마라. 매 턴을 \'어떻게 하시겠습니까?\'·\'당신의 선택은?\' 같은 메타 질문이나 선택지 나열로 닫지 마라. 장면을 여운이나 긴장으로 자연스럽게 멈춰 플레이어가 다음 행동을 이어 쓰게 둔다.');
   L.push('[표기] 한국어 우선. 고유명사·기술명은 처음 등장할 때만 한자/원어를 괄호로 가볍게 병기(예: 교쿠로(玉露), 적월). 매번 병기하지 말 것.');
+  L.push('\n[등장인물 캐논] 아래 프로필의 말투·성격·전투 스타일·관계를 충실히 반영하되, 체크리스트처럼 나열하지 말고 장면에 자연스럽게 녹여라.');
   const p=byId[W.meta.protagonist];
-  if(p){ L.push('\n[주인공]\n'+charBrief(p)); }
-  const comp=(W.meta.companions||[]).map(id=>byId[id]).filter(Boolean);
-  if(comp.length){ L.push('\n[동행 인물]\n'+comp.map(charBrief).join('\n')); }
+  if(p){ L.push('\n[주인공]\n'+charDossier(p)); }
+  const compIds=(W.meta.companions||[]).filter(id=>byId[id]);
+  if(compIds.length){ L.push('\n[동행 인물]\n'+compIds.map(id=>charDossier(byId[id])).join('\n\n')); }
+  // 최근 장면에 등장한 비동행 캐논 인물 자동 주입
+  const sceneIds=detectSceneChars([W.meta.protagonist].concat(compIds));
+  if(sceneIds.length){ L.push('\n[현재 장면 등장 인물]\n'+sceneIds.map(id=>charDossier(byId[id])).join('\n\n')); }
   // 호감도 밴드 행동 지시
   const af=[];
   for(const id in W.affinity){ const c=byId[id]; if(!c)continue; const b=bandOf(W.affinity[id].value);
