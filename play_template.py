@@ -49,7 +49,8 @@ h1,h2,h3,.serif{font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua'
 ruby{ruby-position:over} rt{font-size:.5em;color:var(--gold);font-weight:600}
 
 /* 레이아웃 */
-#app{display:grid;grid-template-columns:1fr;grid-template-rows:60px 1fr;height:100vh}
+/* height: 100dvh = iOS Safari 동적 툴바 반영(100vh는 하단 툴바 뒤로 콘텐츠가 잘림). 미지원 브라우저는 100vh 폴백 */
+#app{display:grid;grid-template-columns:1fr;grid-template-rows:60px 1fr;height:100vh;height:100dvh}
 #topbar{display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);
   background:linear-gradient(180deg,#2a153e,#1f0f2e);box-shadow:0 2px 18px rgba(0,0,0,.5);z-index:50}
 .brand{font-size:18px;font-weight:700;color:var(--gold-bright);text-shadow:0 1px 0 #000;white-space:nowrap}
@@ -230,7 +231,8 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .msg.sys{text-align:center;color:var(--gold-deep);font-size:12px;letter-spacing:.1em}
 .msg.chg{text-align:center;color:var(--gold-bright);font-size:12px;letter-spacing:.04em;margin:-6px 0 16px}
 .msg.chg::before,.msg.chg::after{content:"";display:inline-block;width:24px;height:1px;background:var(--gold-deep);vertical-align:middle;margin:0 8px;opacity:.6}
-#composer{border-top:1px solid var(--line);padding:14px 30px;background:#1f0f2e}
+/* 하단 패딩에 safe-area-inset-bottom 합산 → 아이폰 홈 인디케이터가 입력바를 가리지 않게 */
+#composer{border-top:1px solid var(--line);padding:14px 30px calc(14px + env(safe-area-inset-bottom,0px));background:#1f0f2e}
 #composer .inwrap{max-width:820px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
 #userInput{flex:1;resize:none;min-height:46px;max-height:160px}
 #choices{max-width:820px;margin:0 auto 8px;display:flex;gap:8px;flex-wrap:wrap}
@@ -341,9 +343,9 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
   /* 플레이: 단일 컬럼 + 레일 우측 시트 */
   #view-play.active{grid-template-columns:1fr}
   #log{padding:16px 16px;max-width:none}
-  #composer{padding:10px 14px}
+  #composer{padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
   #composer .inwrap,#composer .actbar,#choices{max-width:none}
-  body.on-play .railtoggle{display:inline-flex;position:fixed;right:14px;bottom:88px;z-index:55;
+  body.on-play .railtoggle{display:inline-flex;position:fixed;right:14px;bottom:calc(88px + env(safe-area-inset-bottom,0px));z-index:55;
     align-items:center;background:linear-gradient(180deg,#3a1a50,#2a0f38);border:1px solid var(--gold-deep);
     color:var(--gold-bright);border-radius:22px;padding:9px 15px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;box-shadow:var(--shadow)}
   #rail{position:fixed;top:0;right:0;bottom:0;width:280px;max-width:84vw;transform:translateX(100%);
@@ -457,13 +459,41 @@ function estTokens(s){
     if((c>=0x1100&&c<=0x11FF)||(c>=0x3000&&c<=0x9FFF)||(c>=0xAC00&&c<=0xD7A3)||(c>=0xF900&&c<=0xFAFF)||(c>=0x3040&&c<=0x30FF)) cjk++; else oth++; }
   return Math.max(1, Math.round(cjk*0.6 + oth*0.27));
 }
-// 모델 단가 (USD / 1M 토큰, 입력/출력 — 근사치)
+// 모델 단가 (USD / 1M 토큰, 입력/출력 — 2026-06 기준 근사치)
+// 주: Gemini 3.x Pro는 >200k 컨텍스트에서 $4/$18 고단가 티어, GPT-5.x는 >272k에서 2×/1.5× 티어가
+//     있으나 플레이 규모는 그 미만이라 미적용. flash-lite 키는 flash보다 먼저 둬 접두 오매칭 방지.
 const PRICES = {
   'claude-opus-4-8':[5,25], 'claude-sonnet-4-6':[3,15], 'claude-haiku-4-5':[1,5],
-  'gemini-2.5-pro':[1.25,10], 'gemini-2.5-flash':[0.30,2.5],
+  'gemini-3.1-pro':[2,12], 'gemini-3-pro':[2,12],
+  'gemini-3.5-flash':[1.5,9], 'gemini-3-flash':[1.5,9],
+  'gemini-2.5-pro':[1.25,10], 'gemini-2.5-flash-lite':[0.10,0.40], 'gemini-2.5-flash':[0.30,2.5],
+  'gpt-5.5':[5,30], 'gpt-5.4':[2.5,15], 'gpt-5-nano':[0.05,0.40], 'gpt-5-mini':[0.25,2], 'gpt-5':[1.25,10],
   'gpt-4o':[2.5,10], 'gpt-4o-mini':[0.15,0.6], 'mock':[0,0], '_default':[3,15]
 };
-function priceOf(model){ return PRICES[model] || PRICES['_default']; }
+// 모델 ID는 자유 입력이라 변종(gemini-3.1-pro-preview 등)이 들어옴 → 접두/패밀리 폴백으로 견고화.
+function priceOf(model){
+  if(!model) return PRICES['_default'];
+  if(PRICES[model]) return PRICES[model];
+  const m=String(model).toLowerCase();
+  for(const k in PRICES){ if(k!=='_default' && m.indexOf(k)===0) return PRICES[k]; }
+  if(/gemini-3.*pro/.test(m)) return [2,12];
+  if(/gemini-3.*flash/.test(m)) return [1.5,9];
+  if(/gpt-5\.5/.test(m)) return [5,30];
+  if(/gpt-5\.4/.test(m)) return [2.5,15];
+  if(/gpt-5/.test(m)) return [1.25,10];
+  return PRICES['_default'];
+}
+// Gemini usageMetadata → {inTok(풀과금 입력), outTok(후보+사고), cacheRead}
+// 출력은 total-prompt 로 산출: candidates가 사고(thinking) 토큰을 포함하든 별도이든 모두 정확.
+function geminiUsage(m){
+  if(!m) return {inTok:0,outTok:0,cacheRead:0};
+  const cc=m.cachedContentTokenCount||0;
+  const pt=m.promptTokenCount||0;
+  const tt=m.totalTokenCount||0;
+  const cand=m.candidatesTokenCount||0, th=m.thoughtsTokenCount||0;
+  const out = (tt>pt) ? (tt-pt) : (cand+th);   // 사고 토큰 포함 보장
+  return {inTok:Math.max(0,pt-cc), outTok:out, cacheRead:cc};
+}
 // USD→KRW 환율: 실시간 fetch(무키·CORS), 24h 캐시, 실패 시 기본 1400
 let FX = 1400;
 (function loadFx(){ try{ const c=JSON.parse(localStorage.getItem('playFx')||'null'); if(c&&c.rate){ FX=c.rate; if(Date.now()-(c.ts||0)<864e5) return; } }catch(e){} refreshFx(); })();
@@ -481,7 +511,7 @@ function cost(inTok,outTok,model,cacheRead,cacheCreate){
   return (inUSD + (outTok||0)/1e6*po)*FX;
 }
 // 프로바이더별 '싼 모델'(장기기억 요약용). 없으면 현재 모델로 폴백.
-const CHEAP_MODEL={anthropic:'claude-haiku-4-5', gemini:'gemini-2.5-flash', openai:'gpt-4o-mini'};
+const CHEAP_MODEL={anthropic:'claude-haiku-4-5', gemini:'gemini-2.5-flash-lite', openai:'gpt-5-mini'};
 function krw(n){ return '₩'+Math.round(n).toLocaleString('ko-KR'); }
 function qlip(n){ return Math.round(n).toLocaleString('ko-KR')+' 클리포트 억지력'; }
 
@@ -504,8 +534,8 @@ function mdRender(src){
 /* ============ 설정 (API, BYO 키) ============ */
 const PRESETS = {
   anthropic:{ep:'https://api.anthropic.com/v1/messages', model:'claude-opus-4-8'},
-  openai:{ep:'https://api.openai.com/v1/chat/completions', model:'gpt-4o'},
-  gemini:{ep:'https://generativelanguage.googleapis.com/v1beta/models', model:'gemini-2.5-pro'},
+  openai:{ep:'https://api.openai.com/v1/chat/completions', model:'gpt-5.5'},
+  gemini:{ep:'https://generativelanguage.googleapis.com/v1beta/models', model:'gemini-3.1-pro'},
   mock:{ep:'', model:'mock'}
 };
 // 추천 모델 카탈로그 (실제 사용 가능한 ID만; 그 외는 '직접 입력')
@@ -513,10 +543,13 @@ const MODELS = [
   {id:'claude-opus-4-8', label:'Claude Opus 4.8', provider:'anthropic', desc:'극한의 몰입감과 창의적 서사력 — 최신 플래그십', rec:true},
   {id:'claude-sonnet-4-6', label:'Claude Sonnet 4.6', provider:'anthropic', desc:'균형 잡힌 속도와 품질'},
   {id:'claude-haiku-4-5', label:'Claude Haiku 4.5', provider:'anthropic', desc:'빠르고 가벼운 응답'},
+  {id:'gemini-3.1-pro', label:'Gemini 3.1 Pro', provider:'gemini', desc:'구글 최신 플래그십 · 강력한 추론', rec:true},
+  {id:'gemini-3.5-flash', label:'Gemini 3.5 Flash', provider:'gemini', desc:'최신 고속 사고형 모델'},
   {id:'gemini-2.5-pro', label:'Gemini 2.5 Pro', provider:'gemini', desc:'고성능 · 장문 대화에 적합'},
   {id:'gemini-2.5-flash', label:'Gemini 2.5 Flash', provider:'gemini', desc:'빠른 응답'},
-  {id:'gpt-4o', label:'GPT-4o', provider:'openai', desc:'범용 고품질'},
-  {id:'gpt-4o-mini', label:'GPT-4o mini', provider:'openai', desc:'빠르고 저렴'},
+  {id:'gpt-5.5', label:'GPT-5.5', provider:'openai', desc:'OpenAI 최신 프런티어'},
+  {id:'gpt-5.4', label:'GPT-5.4', provider:'openai', desc:'균형형 고품질'},
+  {id:'gpt-5-mini', label:'GPT-5 mini', provider:'openai', desc:'빠르고 저렴'},
   {id:'mock', label:'환영(幻影) · 시연', provider:'mock', desc:'키 없이 흐름 체험'},
 ];
 const PROVIDER_KR = {anthropic:'Anthropic · Claude', openai:'OpenAI 호환', gemini:'Google Gemini', mock:'시연'};
@@ -883,12 +916,9 @@ function grabUsage(o, u){
         u.cacheRead=mu.cache_read_input_tokens||0; u.cacheCreate=mu.cache_creation_input_tokens||0; }
       if(o.type==='message_delta'&&o.usage){ u.outTok=o.usage.output_tokens||u.outTok; }
     }
-    else if(API.provider==='gemini'){ if(o.usageMetadata){ const m=o.usageMetadata;
-      const cc=m.cachedContentTokenCount||0;                       // 암묵 캐싱(2.5 기본) — 90% 할인
-      // Gemini promptTokenCount는 캐시 토큰 포함 → 풀과금 입력은 (전체 - 캐시)로 정규화(앤트로픽과 의미 통일)
-      const pt=m.promptTokenCount||0; if(pt) u.inTok=Math.max(0,pt-cc);
-      if(cc) u.cacheRead=cc;
-      u.outTok=m.candidatesTokenCount||u.outTok; } }
+    else if(API.provider==='gemini'){ if(o.usageMetadata){ const g=geminiUsage(o.usageMetadata);
+      // 출력은 사고(thinking) 토큰 포함(geminiUsage가 total-prompt로 산출). 캐시 입력은 0.1× 과금.
+      if(g.inTok) u.inTok=g.inTok; if(g.outTok) u.outTok=g.outTok; u.cacheRead=g.cacheRead; } }
   }catch(e){}
 }
 async function mockLLM(system,history,onTok){
@@ -1186,10 +1216,10 @@ async function extractDeltasFallback(userText, sceneText){
   else if(API.provider==='anthropic') text=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
   else if(API.provider==='gemini'){ try{ text=j.candidates[0].content.parts.map(p=>p.text||'').join(''); }catch(e){} }
   // 비용 회계
-  let inT=0,outT=0;
+  let inT=0,outT=0,cacheR=0;
   if(j.usage){ inT=j.usage.input_tokens||j.usage.prompt_tokens||0; outT=j.usage.output_tokens||j.usage.completion_tokens||0; }
-  else if(j.usageMetadata){ inT=j.usageMetadata.promptTokenCount||0; outT=j.usageMetadata.candidatesTokenCount||0; }
-  if((inT||outT)&&W.usage){ const sc=cost(inT,outT,model); W.usage.runIn+=inT; W.usage.runOut+=outT; W.usage.runKRW+=sc; }
+  else if(j.usageMetadata){ const g=geminiUsage(j.usageMetadata); inT=g.inTok; outT=g.outTok; cacheR=g.cacheRead; }
+  if((inT||outT)&&W.usage){ const sc=cost(inT,outT,model,cacheR); W.usage.runIn+=inT; W.usage.runOut+=outT; W.usage.runKRW+=sc; }
   const arr=parseDeltaArray((text||'').replace(/```json|```/g,'').trim());
   return arr.filter(d=>d&&typeof d.path==='string'&&typeof d.op==='string');
 }
@@ -1271,7 +1301,7 @@ async function maybeSummarize(){
   if(summ){
     W.summary=summ; W.summaryUpto=end;
     if(res&&(res.inTok||res.outTok)&&W.usage){   // 요약 비용도 회차 누적에 반영
-      const sc=cost(res.inTok,res.outTok,res.model);
+      const sc=cost(res.inTok,res.outTok,res.model,res.cacheRead);
       W.usage.runIn+=res.inTok||0; W.usage.runOut+=res.outTok||0; W.usage.runKRW+=sc;
       W.usage.summaryKRW=(W.usage.summaryKRW||0)+sc;
     }
@@ -1313,15 +1343,15 @@ async function summarizeMemory(slice, prev){
   const res=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
   if(!res.ok) return null;
   const j=await res.json();
-  let text='', inTok=0, outTok=0;
+  let text='', inTok=0, outTok=0, cacheRead=0;
   if(API.provider==='openai'){ text=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
     if(j.usage){ inTok=j.usage.prompt_tokens||0; outTok=j.usage.completion_tokens||0; } }
   else if(API.provider==='anthropic'){ text=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     if(j.usage){ inTok=j.usage.input_tokens||0; outTok=j.usage.output_tokens||0; } }
   else if(API.provider==='gemini'){ try{ text=j.candidates[0].content.parts.map(p=>p.text||'').join(''); }catch(e){}
-    if(j.usageMetadata){ inTok=j.usageMetadata.promptTokenCount||0; outTok=j.usageMetadata.candidatesTokenCount||0; } }
+    if(j.usageMetadata){ const g=geminiUsage(j.usageMetadata); inTok=g.inTok; outTok=g.outTok; cacheRead=g.cacheRead; } }
   text=(text||'').trim();
-  return text?{text, inTok, outTok, model}:null;
+  return text?{text, inTok, outTok, cacheRead, model}:null;
 }
 /* 턴 토큰·비용 회계 + 세피로트 분해 */
 function accountTurn(segs, hist, outText, usage){
@@ -1693,7 +1723,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>바벨의 도서관 : 마법소녀 레코드</title>
 <style>/*__CSS__*/</style>
 </head>
@@ -1849,7 +1879,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
       </select>
       <label class="fld"><span class="tip" data-tip="엔드포인트 URL — 비우면 프로바이더 기본값">차원 좌표 (엔드포인트) <span style="opacity:.6">(비우면 기본)</span></span></label>
       <input class="tin" id="setEndpoint" placeholder="">
-      <label class="fld"><span class="tip" data-tip="모델 ID (예: claude-opus-4-8, gpt-4o, gemini-2.5-pro, openrouter 모델명)">모델 ID</span></label>
+      <label class="fld"><span class="tip" data-tip="모델 ID (예: claude-opus-4-8, gemini-3.1-pro, gemini-3.5-flash, gpt-5.5, openrouter 모델명)">모델 ID</span></label>
       <input class="tin" id="setModel" placeholder="모델 ID">
       <div class="warn" style="margin-top:8px">OpenAI 호환은 <code>/chat/completions</code> 전체 URL을, Gemini는 <code>.../v1beta/models</code> 기본 URL을 엔드포인트로 씁니다.</div>
     </details>
