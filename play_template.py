@@ -394,10 +394,24 @@ input.tin:focus,select.tin:focus,textarea.tin:focus{border-color:var(--gold-deep
 .item .it-t{font-size:13px;font-weight:600}
 .item .it-s{font-size:11px;color:var(--ink-faint)}
 .item .eqb{font-size:11px;font-weight:700;color:var(--gold-bright)}
+.item .it-main{min-width:0}
+.item .it-acts{display:flex;gap:10px;align-items:center;flex-shrink:0}
+.item .del{color:var(--ink-faint);cursor:pointer}
+.item .del:hover{color:#e88}
+/* 이어하기 접기 헤더 */
+.saves-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.saves-toggle{flex:1;text-align:left;background:transparent;border:0;color:var(--gold-bright);font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;padding:0}
+.saves-toggle .cnt{font-size:12px;color:var(--ink-faint);font-weight:600}
+.saves-toggle .cv{font-size:12px;color:var(--ink-faint);margin-left:2px}
+.sclear{background:transparent;border:1px solid var(--line);color:var(--ink-dim);border-radius:8px;padding:5px 10px;font-family:inherit;font-size:12px;cursor:pointer}
+.sclear:hover{border-color:#a55;color:#e88}
+#saveList{margin-top:10px}
+/* 시작 상황 카드의 맥락 서술 */
+.sitcard .sc-ctx{margin-top:8px;font-size:12.5px;color:var(--ink-dim);line-height:1.5;font-style:italic}
 
 /* 설정 모달 */
-#modal,#impModal,#qlipModal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
-#modal.on,#impModal.on,#qlipModal.on{display:flex}
+#modal,#impModal,#qlipModal,#ctxModal{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+#modal.on,#impModal.on,#qlipModal.on,#ctxModal.on{display:flex}
 textarea.tin{resize:vertical}
 .mbox{background:linear-gradient(180deg,#2a0f38,#20102e);border:1px solid var(--gold-deep);border-radius:16px;
   max-width:480px;width:100%;padding:22px 24px;box-shadow:var(--shadow);max-height:88vh;overflow:auto}
@@ -593,6 +607,7 @@ function youName(){ return W.meta.persona? (W.meta.persona.name||'당신') : ((b
 
 function loadSaves(){ try{return JSON.parse(localStorage.getItem(SAVEKEY)||'{}');}catch(e){return {};} }
 function writeSaves(o){ localStorage.setItem(SAVEKEY, JSON.stringify(o)); }
+function deleteSave(id){ const s=loadSaves(); delete s[id]; writeSaves(s); }
 
 // 세계의 기억 전역 해금 원장 (회차 간 영속). 기본=잠김.
 function loadUnlockedMem(){
@@ -830,7 +845,7 @@ function newRun(protagId, companionIds, memoryIds, opts){
   W.meta.persona = opts.persona||null;          // 커스텀 페르소나(없으면 캐논 주인공)
   W.meta.companions = companionIds.slice();
   W.meta.ngPlusCount = memoryIds.length?1:0;
-  W.meta.start = {districtKey: opts.startDistrict || deriveStartDistrict(protagId, companionIds), tone: opts.tone || '일상'};
+  W.meta.start = {districtKey: opts.startDistrict || deriveStartDistrict(protagId, companionIds), tone: opts.tone || '일상', context: opts.context || ''};
   W.meta.prologueDone = false;
   // 호감도 시드: 캐논 주인공의 관계(페르소나 모드면 생략)
   const p=byId[protagId];
@@ -993,32 +1008,63 @@ function setRunUi(){
 
 /* ============ 시작 화면 ============ */
 let pickP=null, pickC=[], pickM=[], curFaction=null;
-let youMode='canon', pickPersona=null, startDistrict=null, startTone='일상';   // 시작 경험 v2
+let youMode='canon', pickPersona=null;   // 시작 경험 v2 (장소·분위기·맥락은 캐릭터 선택 후 팝업에서)
 const FAC_ORDER=['rep','bureau','trainee','shikoku','refusal','villain','guest','other'];
 const pool=playable.concat(CANON.guests||[]);          // 선택 가능 인물 풀
 const facList=f=>pool.filter(c=>c.faction===f);
 const factionsPresent=()=>FAC_ORDER.filter(f=>facList(f).length);
 
-function renderStart(){ renderYouMode(); renderPersonaPanel(); renderSlots(); renderTabs(); renderHand(); renderStartSet(); renderMem(); renderSaves(); updateStartBtn(); }
+function renderStart(){ renderYouMode(); renderPersonaPanel(); renderSlots(); renderTabs(); renderHand(); renderMem(); renderSaves(); updateStartBtn(); }
 function updateStartBtn(){
   const ok = youMode==='canon' ? !!pickP : !!(pickPersona&&pickPersona.name&&pickPersona.detail);
   document.getElementById('startBtn').disabled=!ok;
 }
-/* 랜덤 구성: 캐논 주인공 + 동행 0~3 + 지역/분위기 무작위. 이후 사용자가 그대로 시작하거나 수정(고정) 가능. */
 function _randInt(n){ return Math.floor(Math.random()*n); }
-function randomizeStart(){
-  const pl = playable.slice();
-  if(!pl.length) return;
-  youMode='canon'; pickPersona=null;
-  pickP = pl[_randInt(pl.length)].id;
-  const rest = pl.filter(c=>c.id!==pickP);
-  for(let i=rest.length-1;i>0;i--){ const j=_randInt(i+1); const t=rest[i]; rest[i]=rest[j]; rest[j]=t; }
-  pickC = rest.slice(0, _randInt(4)).map(c=>c.id);          // 동행 0~3명
+/* ===== 스타팅 맥락(장소·분위기·서술) — 캐릭터 선택 후 팝업에서 랜덤/커스텀 구성 ===== */
+const CTX_PREMISES=[
+  '늦은 밤 순찰 도중, 골목 끝에서 희미한 괴이의 잔향을 감지한다.',
+  '의뢰인이 사무소를 찾아와 조심스레 사건을 털어놓는다.',
+  '긴급 출동 경보가 울리고, 동료들과 함께 현장으로 향한다.',
+  '평범한 일상의 한낮, 예상치 못한 인물과 마주친다.',
+  '축제로 붐비는 거리 한복판에서 불길한 기척이 번진다.',
+  '비 내리는 저녁, 인적 끊긴 역사에서 누군가 당신을 기다린다.'
+];
+let pendingStart=null;                          // {persona|protagId, companions, memories}
+let startCtx={district:null, tone:'일상', context:''};
+function openCtxModal(){
+  startCtx={district:deriveStartDistrict(pendingStart.protagId, pendingStart.companions), tone:'일상', context:''};
+  renderCtxModal();
+  document.getElementById('ctxModal').classList.add('on');
+}
+function _ctxGrab(){   // 재렌더 전 현재 입력값 보존
+  const d=document.getElementById('ctxDistrict'); if(d)startCtx.district=d.value;
+  const t=document.getElementById('ctxText'); if(t)startCtx.context=t.value;
+}
+function ctxRandomize(){
   const ds=ASSETS.districts||[];
-  startDistrict = (Math.random()<0.5 || !ds.length) ? deriveStartDistrict(pickP,pickC)
-                                                    : ds[_randInt(ds.length)].key;
-  startTone = TONES[_randInt(TONES.length)];
-  renderStart();
+  if(ds.length) startCtx.district=ds[_randInt(ds.length)].key;
+  startCtx.tone=TONES[_randInt(TONES.length)];
+  startCtx.context=CTX_PREMISES[_randInt(CTX_PREMISES.length)];
+  renderCtxModal();
+}
+function renderCtxModal(){
+  const dsel=document.getElementById('ctxDistrict');
+  if(dsel){ dsel.innerHTML=(ASSETS.districts||[]).map(d=>'<option value="'+d.key+'"'+(d.key===startCtx.district?' selected':'')+'>'+esc(d.kr)+'</option>').join('');
+    dsel.onchange=()=>{ startCtx.district=dsel.value; }; }
+  const tw=document.getElementById('ctxTone');
+  if(tw){ tw.innerHTML=TONES.map(t=>'<button type="button" data-t="'+t+'" class="'+(t===startCtx.tone?'on':'')+'">'+t+'</button>').join('');
+    tw.querySelectorAll('button').forEach(b=>b.onclick=()=>{ _ctxGrab(); startCtx.tone=b.dataset.t; renderCtxModal(); }); }
+  const ta=document.getElementById('ctxText'); if(ta) ta.value=startCtx.context||'';
+}
+function confirmCtxStart(){
+  _ctxGrab();
+  const ps=pendingStart; if(!ps) return;
+  const opts={startDistrict:startCtx.district, tone:startCtx.tone, context:(startCtx.context||'').trim()};
+  if(ps.persona) newRun(null, ps.companions, ps.memories, Object.assign({persona:ps.persona},opts));
+  else newRun(ps.protagId, ps.companions, ps.memories, opts);
+  document.getElementById('ctxModal').classList.remove('on');
+  pendingStart=null;
+  setRunUi(); renderLog(); show('play'); startPrologue();
 }
 function setYouMode(m){ if(youMode===m)return; youMode=m; renderStart(); }
 function renderYouMode(){
@@ -1054,16 +1100,6 @@ function renderPersonaPanel(){
   const commit=(save)=>{ const p=_psnGrab(); if(!p.name||!p.detail){ alert('이름과 상세 정보는 필수입니다.'); return; } pickPersona = save? Object.assign({},savePersona(p)) : (p.id=null,p); renderPersonaPanel(); renderSlots(); updateStartBtn(); };
   document.getElementById('psnUseOnce').onclick=()=>commit(false);
   document.getElementById('psnSaveShared').onclick=()=>commit(true);
-}
-function renderStartSet(){
-  const el=document.getElementById('startSet'); if(!el) return;
-  if(!startDistrict) startDistrict = deriveStartDistrict(youMode==='canon'?pickP:null, pickC);
-  const opts=(ASSETS.districts||[]).map(d=>'<option value="'+d.key+'"'+(d.key===startDistrict?' selected':'')+'>'+esc(d.kr)+'</option>').join('');
-  const tones=TONES.map(t=>'<button type="button" data-t="'+t+'" class="'+(t===startTone?'on':'')+'">'+t+'</button>').join('');
-  el.innerHTML='<span class="ss-lab">시작 지역</span><select id="ssDistrict">'+opts+'</select>'+
-    '<span class="ss-lab">분위기</span><span class="tonebtns" id="ssTone">'+tones+'</span>';
-  document.getElementById('ssDistrict').onchange=function(){ startDistrict=this.value; };
-  el.querySelectorAll('#ssTone button').forEach(b=>b.onclick=()=>{ startTone=b.dataset.t; renderStartSet(); });
 }
 
 function renderSlots(){
@@ -1124,14 +1160,24 @@ function renderMem(){
   mc.querySelectorAll('.chip.mem').forEach(el=>el.onclick=()=>{const id=el.dataset.id;
     pickM=pickM.includes(id)?pickM.filter(x=>x!==id):pickM.concat(id); renderMem();});
 }
+let savesOpen=false;   // 이어하기 목록 기본 접힘 → 버튼으로 펼침
 function renderSaves(){
   const saves=loadSaves(); const keys=Object.keys(saves).sort((a,b)=>saves[b].ts-saves[a].ts);
-  const sl=document.getElementById('saveList');
+  const cnt=document.getElementById('savesCnt'); if(cnt) cnt.textContent=keys.length;
+  const cv=document.getElementById('savesCv'); if(cv) cv.textContent=savesOpen?'⌄':'▸';
+  const clr=document.getElementById('savesClear'); if(clr) clr.style.display=(savesOpen&&keys.length)?'':'none';
+  const sl=document.getElementById('saveList'); if(!sl) return;
+  sl.style.display = savesOpen?'':'none';
+  if(!savesOpen){ return; }
   sl.innerHTML = keys.length?keys.map(k=>{const s=saves[k];
-    return '<div class="item" data-k="'+k+'"><div><div class="it-t">'+esc(s.name)+'</div>'+
+    return '<div class="item" data-k="'+k+'"><div class="it-main"><div class="it-t">'+esc(s.name)+'</div>'+
       '<div class="it-s">'+new Date(s.ts).toLocaleString()+' · 턴 '+(s.world.meta.turn||0)+'</div></div>'+
-      '<span class="eqb load">불러오기</span></div>';}).join(''):'<div class="muted">저장된 회차 없음</div>';
-  sl.querySelectorAll('.item').forEach(el=>el.onclick=()=>{ if(loadRun(el.dataset.k)){ setRunUi(); renderLog(); show('play'); } });
+      '<div class="it-acts"><span class="eqb load" data-act="load">불러오기</span>'+
+      '<span class="eqb del" data-act="del" title="이 회차 삭제">✕</span></div></div>';}).join(''):'<div class="muted">저장된 회차 없음</div>';
+  sl.querySelectorAll('.item').forEach(el=>{
+    const lo=el.querySelector('[data-act="load"]'); if(lo) lo.onclick=e=>{ e.stopPropagation(); if(loadRun(el.dataset.k)){ setRunUi(); renderLog(); show('play'); } };
+    const db=el.querySelector('[data-act="del"]'); if(db) db.onclick=e=>{ e.stopPropagation(); if(confirm('이 회차를 삭제할까요? 되돌릴 수 없습니다.')){ deleteSave(el.dataset.k); renderSaves(); } };
+  });
 }
 function selectChar(id){
   if(youMode==='persona'){               // 페르소나 모드: 핸드 선택은 동행만
@@ -1274,6 +1320,7 @@ function situationCardText(){
     '장소: '+districtKrOf(dk)+(t.sealed?' (봉인 지역)':'')+(ctrl?(' · 지역 대표 '+ctrl):'')+(t.stability!=null?(' · 안정도 '+t.stability):''),
     '분위기: '+(W.meta.start.tone||'일상')];
   if(comps.length) L.push('동행: '+comps.join(', '));
+  if(W.meta.start.context) L.push('맥락: '+W.meta.start.context);
   return L.join('\n');
 }
 function situationCardHtml(){
@@ -1284,7 +1331,8 @@ function situationCardHtml(){
   const chip=(l,v)=>'<span class="scchip"><b>'+esc(l)+'</b> '+esc(v)+'</span>';
   let c=chip('시점',youName())+chip('장소',districtKrOf(dk)+(t.sealed?' (봉인)':''))+chip('분위기',W.meta.start.tone||'일상');
   if(ctrl)c+=chip('지역대표',ctrl); if(comps.length)c+=chip('동행',comps.join(', '));
-  return '<div class="sitcard"><div class="sc-h">◈ 시작 상황</div><div class="sc-chips">'+c+'</div></div>';
+  const ctxLine=W.meta.start.context?('<div class="sc-ctx">'+esc(W.meta.start.context)+'</div>'):'';
+  return '<div class="sitcard"><div class="sc-h">◈ 시작 상황</div><div class="sc-chips">'+c+'</div>'+ctxLine+'</div>';
 }
 function fallbackPrologue(){
   const who=youName(); const place=districtKrOf(W.meta.start.districtKey);
@@ -1719,17 +1767,21 @@ function boot(){
   document.getElementById('railToggle').onclick=()=>{ renderRail(); document.body.classList.toggle('rail-open'); };
   document.getElementById('scrim').onclick=()=>document.body.classList.remove('nav-open','rail-open');
   document.querySelectorAll('#youMode button').forEach(b=>b.onclick=()=>setYouMode(b.dataset.m));
-  { const rb=document.getElementById('randomBtn'); if(rb) rb.onclick=randomizeStart; }
   document.getElementById('startBtn').onclick=()=>{
     if(youMode==='persona'){
       if(!pickPersona||!pickPersona.name||!pickPersona.detail){alert('페르소나의 이름과 상세 정보를 입력하세요.');return;}
-      newRun(null, pickC, pickM, {persona:pickPersona, startDistrict, tone:startTone});
+      pendingStart={persona:pickPersona, protagId:null, companions:pickC.slice(), memories:pickM.slice()};
     } else {
       if(!pickP){alert('주인공을 선택하세요.');return;}
-      newRun(pickP, pickC, pickM, {startDistrict, tone:startTone});
+      pendingStart={persona:null, protagId:pickP, companions:pickC.slice(), memories:pickM.slice()};
     }
-    setRunUi(); renderLog(); show('play'); startPrologue();
+    openCtxModal();   // 캐릭터 확정 → 첫 장면 맥락 구성(랜덤/커스텀)
   };
+  { const cr=document.getElementById('ctxRandom'); if(cr) cr.onclick=ctxRandomize; }
+  { const cs=document.getElementById('ctxStart'); if(cs) cs.onclick=confirmCtxStart; }
+  { const cc=document.getElementById('ctxClose'); if(cc) cc.onclick=()=>document.getElementById('ctxModal').classList.remove('on'); }
+  { const st=document.getElementById('savesToggle'); if(st) st.onclick=()=>{ savesOpen=!savesOpen; renderSaves(); }; }
+  { const scl=document.getElementById('savesClear'); if(scl) scl.onclick=()=>{ if(confirm('저장된 모든 회차를 삭제할까요? 되돌릴 수 없습니다.')){ writeSaves({}); renderSaves(); } }; }
   document.getElementById('sendBtn').onclick=()=>{ const i=document.getElementById('userInput');
     const v=i.value; i.value=''; turn(v); };
   document.getElementById('userInput').addEventListener('keydown',e=>{
@@ -1798,19 +1850,20 @@ HTML_SHELL = r"""<!DOCTYPE html>
             <div class="handwrap"><div class="hand" id="pickHand"></div></div>
             <button class="harrow" id="handNext" title="다음">›</button>
           </div>
-          <div class="startset" id="startSet"></div>
         </div>
         <div class="card2">
           <h3>세계의 기억 장착 (NG+)</h3>
           <div class="chips" id="memChips"></div>
         </div>
         <div class="card2">
-          <h3>이어하기</h3>
-          <div id="saveList"></div>
+          <div class="saves-head">
+            <button type="button" class="saves-toggle" id="savesToggle">이어하기 <span class="cnt" id="savesCnt">0</span> <span class="cv" id="savesCv">▸</span></button>
+            <button type="button" class="sclear" id="savesClear" style="display:none">전체 삭제</button>
+          </div>
+          <div id="saveList" style="display:none"></div>
         </div>
         <div class="row" style="justify-content:center">
-          <button class="btn ghost" id="randomBtn" title="주인공·동행·지역·분위기를 무작위로 구성합니다">🎲 랜덤 구성</button>
-          <button class="btn" id="startBtn">이 구성으로 시작 ▶</button>
+          <button class="btn" id="startBtn">캐릭터 확정 → 맥락 구성 ▶</button>
           <button class="btn ghost" id="btnSettings2" onclick="document.getElementById('btnSettings').click()">먼저 인격 파편 조율</button>
         </div>
         <div class="warn">아카식 개인 식별자(A.P.I. — API 키)는 이 브라우저(localStorage)에만 깃들고, 선택한 차원 좌표(엔드포인트)로만 직접 전송됩니다. 개인용 식별자를 쓰고, 공용 PC에서는 사용 후 지우세요. 로컬 차원 좌표(Ollama·LM Studio 등)는 CORS 허용이 필요합니다. 식별자 없이도 <b>환영(mock)</b>으로 흐름을 체험할 수 있습니다.</div>
@@ -1915,6 +1968,25 @@ HTML_SHELL = r"""<!DOCTYPE html>
     </details>
     <div class="warn">식별자는 localStorage에 깃들어 선택한 엔드포인트로만 직접 전송됩니다.</div>
     <div class="row" style="margin-top:14px"><button class="btn" id="setSave">새기기</button></div>
+  </div>
+</div>
+
+<!-- 스타팅 맥락 모달 (캐릭터 확정 후) -->
+<div id="ctxModal">
+  <div class="mbox">
+    <span class="close" id="ctxClose">×</span>
+    <h3>스타팅 맥락 <span style="font-size:13px;color:var(--ink-faint);font-weight:400">첫 장면의 장소·분위기·상황</span></h3>
+    <p class="muted" style="font-size:12px;margin:.1em 0 12px">캐릭터는 정해졌습니다. 첫 장면을 어떻게 열지 구성하세요 — 직접 쓰거나 🎲로 무작위 구성할 수 있습니다.</p>
+    <div class="startset" style="justify-content:flex-start;margin:0 0 6px">
+      <span class="ss-lab">시작 지역</span><select id="ctxDistrict"></select>
+      <span class="ss-lab">분위기</span><span class="tonebtns" id="ctxTone"></span>
+    </div>
+    <div style="font-size:12px;color:var(--ink-faint);margin:12px 0 4px">맥락 서술 <span style="opacity:.6">(선택)</span></div>
+    <textarea class="tin" id="ctxText" rows="4" placeholder="첫 장면의 상황을 자유롭게 적어 주세요. 예: 늦은 밤 순찰 중 골목에서 괴이의 기척을 느낀다. (비우면 위 설정만으로 시작)"></textarea>
+    <div class="row" style="margin-top:14px;justify-content:space-between">
+      <button class="btn ghost" id="ctxRandom">🎲 랜덤 구성</button>
+      <button class="btn" id="ctxStart">이 맥락으로 시작 ▶</button>
+    </div>
   </div>
 </div>
 
