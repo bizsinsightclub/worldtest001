@@ -49,8 +49,9 @@ h1,h2,h3,.serif{font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua'
 ruby{ruby-position:over} rt{font-size:.5em;color:var(--gold);font-weight:600}
 
 /* 레이아웃 */
-/* height: 100dvh = iOS Safari 동적 툴바 반영(100vh는 하단 툴바 뒤로 콘텐츠가 잘림). 미지원 브라우저는 100vh 폴백 */
-#app{display:grid;grid-template-columns:1fr;grid-template-rows:60px 1fr;height:100vh;height:100dvh}
+/* iOS Safari: 100vh/100dvh는 하단 플로팅 툴바 '뒤'로 콘텐츠가 들어가 입력바가 가려짐.
+   100svh(가장 작은 뷰포트=브라우저 UI 항상 표시 기준)로 하면 입력바가 늘 보임. 미지원 시 100vh 폴백. */
+#app{display:grid;grid-template-columns:1fr;grid-template-rows:60px 1fr;height:100vh;height:100svh}
 #topbar{display:flex;align-items:center;gap:14px;padding:0 20px;border-bottom:1px solid var(--line);
   background:linear-gradient(180deg,#2a153e,#1f0f2e);box-shadow:0 2px 18px rgba(0,0,0,.5);z-index:50}
 .brand{font-size:18px;font-weight:700;color:var(--gold-bright);text-shadow:0 1px 0 #000;white-space:nowrap}
