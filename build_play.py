@@ -131,6 +131,21 @@ def load_json(name, default):
     return default
 
 
+def _has_batchim(w):
+    """마지막 글자에 받침이 있는지(한글 음절이 아니면 False)."""
+    if not w:
+        return False
+    code = ord(w[-1])
+    if code < 0xAC00 or code > 0xD7A3:
+        return False
+    return (code - 0xAC00) % 28 != 0
+
+
+def josa(w, batchim, plain):
+    """한글 조사 자동 선택 — 받침 있으면 batchim, 없으면 plain. '김민석(이)가' 방지."""
+    return (w or "") + (batchim if _has_batchim(w) else plain)
+
+
 def derive_modules(canon):
     """캐논에서 복장(default/magical)·무기(고유 지팡이) 모듈을 자동 파생."""
     mods = []
@@ -143,7 +158,7 @@ def derive_modules(canon):
                 "title": "평상복", "ownedBy": cid, "imgKind": "d",
                 "requires": [], "conflictsWith": ["outfit-%s-magical" % cid],
                 "effects": {"narrative": [
-                    "%s은(는) 평상복 차림이다. 일상적인 분위기로, 능력 노출을 자제한다." % c["title"]],
+                    josa(c["title"], "은", "는") + " 평상복 차림이다. 일상적인 분위기로, 능력 노출을 자제한다."],
                     "state": [], "unlocks": []},
             })
         if im.get("m"):
@@ -152,7 +167,7 @@ def derive_modules(canon):
                 "title": "변신 의상", "ownedBy": cid, "imgKind": "m",
                 "requires": [], "conflictsWith": ["outfit-%s-casual" % cid],
                 "effects": {"narrative": [
-                    "%s은(는) 변신한 상태다. 전투 능력 사용이 허용되며, 평소보다 결연한 태도를 보인다." % c["title"]],
+                    josa(c["title"], "은", "는") + " 변신한 상태다. 전투 능력 사용이 허용되며, 평소보다 결연한 태도를 보인다."],
                     "state": [], "unlocks": []},
             })
         if c.get("staff"):
@@ -162,7 +177,7 @@ def derive_modules(canon):
                 "title": weapon_label(staff), "ownedBy": cid,
                 "requires": [],
                 "effects": {"narrative": [
-                    "%s은(는) 고유 마법 지팡이 「%s」을(를) 들고 있다." % (c["title"], staff)],
+                    josa(c["title"], "은", "는") + " 고유 마법 지팡이 「" + staff + "」" + josa(staff, "을", "를") + " 들고 있다."],
                     "state": [], "unlocks": []},
             })
     return mods

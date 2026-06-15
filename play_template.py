@@ -517,6 +517,17 @@ function krw(n){ return '₩'+Math.round(n).toLocaleString('ko-KR'); }
 function qlip(n){ return Math.round(n).toLocaleString('ko-KR')+' 클리포트 억지력'; }
 
 function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+/* 한글 조사 자동 선택(받침 유무). 한글 음절이 아니면 받침 없는 형태로 폴백 → '김민석(이)가' 방지. */
+function hasBatchim(w){ if(!w) return false; const c=w.charCodeAt(w.length-1);
+  if(c<0xAC00||c>0xD7A3) return false; return (c-0xAC00)%28!==0; }
+function withJosa(w,batchim,plain){ return (w||'')+(hasBatchim(w)?batchim:plain); }
+function jEunNeun(w){ return withJosa(w,'은','는'); }   // 은/는
+function jIGa(w){ return withJosa(w,'이','가'); }       // 이/가
+function jEulReul(w){ return withJosa(w,'을','를'); }   // 을/를
+function jWaGwa(w){ return withJosa(w,'과','와'); }     // 과/와
+function jEuRo(w){ if(!w) return w; const c=w.charCodeAt(w.length-1);
+  const hangul=c>=0xAC00&&c<=0xD7A3, jong=hangul?(c-0xAC00)%28:0;
+  return w+((!hangul||jong===0||jong===8)?'로':'으로'); }   // (으)로: 받침없음·ㄹ → 로
 function img(prefix,kind){const im=CANON.images[prefix];if(!im)return null;return kind==='m'?(im.m||im.d):(im.d||im.m);}
 function mdRender(src){
   if(!src) return '';
@@ -927,8 +938,8 @@ async function mockLLM(system,history,onTok){
   const comp=byId[(W.meta.companions||[])[0]]||byId[W.meta.protagonist]||{title:'그녀'};
   const parts=[
     '세피아빛 가로등이 골목을 적신다. ',
-    '"'+last.slice(0,40)+'…" — '+comp.title+'이(가) 당신의 말끝을 따라 읊조리더니, 옅게 웃었다.\n\n',
-    comp.title+'은(는) 한 걸음 다가서며 당신의 소매를 가만히 붙잡았다. 멀리서 괴이의 기척이 옅게 번졌지만, 지금만큼은 그 온기가 더 또렷했다.\n\n',
+    '"'+last.slice(0,40)+'…" — '+jIGa(comp.title)+' 당신의 말끝을 따라 읊조리더니, 옅게 웃었다.\n\n',
+    jEunNeun(comp.title)+' 한 걸음 다가서며 당신의 소매를 가만히 붙잡았다. 멀리서 괴이의 기척이 옅게 번졌지만, 지금만큼은 그 온기가 더 또렷했다.\n\n',
     '"…다음엔, 내가 먼저 갈게." 그 말에는 평소답지 않은 신뢰가 묻어 있었다.\n\n',
     '```state\n[{"path":"affinity.'+(comp.id||W.meta.protagonist)+'.value","op":"inc","value":6}]\n```'
   ];
@@ -992,6 +1003,22 @@ function renderStart(){ renderYouMode(); renderPersonaPanel(); renderSlots(); re
 function updateStartBtn(){
   const ok = youMode==='canon' ? !!pickP : !!(pickPersona&&pickPersona.name&&pickPersona.detail);
   document.getElementById('startBtn').disabled=!ok;
+}
+/* 랜덤 구성: 캐논 주인공 + 동행 0~3 + 지역/분위기 무작위. 이후 사용자가 그대로 시작하거나 수정(고정) 가능. */
+function _randInt(n){ return Math.floor(Math.random()*n); }
+function randomizeStart(){
+  const pl = playable.slice();
+  if(!pl.length) return;
+  youMode='canon'; pickPersona=null;
+  pickP = pl[_randInt(pl.length)].id;
+  const rest = pl.filter(c=>c.id!==pickP);
+  for(let i=rest.length-1;i>0;i--){ const j=_randInt(i+1); const t=rest[i]; rest[i]=rest[j]; rest[j]=t; }
+  pickC = rest.slice(0, _randInt(4)).map(c=>c.id);          // 동행 0~3명
+  const ds=ASSETS.districts||[];
+  startDistrict = (Math.random()<0.5 || !ds.length) ? deriveStartDistrict(pickP,pickC)
+                                                    : ds[_randInt(ds.length)].key;
+  startTone = TONES[_randInt(TONES.length)];
+  renderStart();
 }
 function setYouMode(m){ if(youMode===m)return; youMode=m; renderStart(); }
 function renderYouMode(){
@@ -1235,7 +1262,7 @@ function flashChanges(changes){
 function recordChanges(changes){
   if(!changes||!changes.length||!W) return;
   W.changeLog=W.changeLog||[];
-  changes.forEach(ch=>W.changeLog.push({turn:W.meta.turn, note:ch.title+'와의 관계가 '+ch.from+'에서 '+ch.to+'(으)로 바뀌었다'}));
+  changes.forEach(ch=>W.changeLog.push({turn:W.meta.turn, note:jWaGwa(ch.title)+'의 관계가 '+ch.from+'에서 '+jEuRo(ch.to)+' 바뀌었다'}));
   if(W.changeLog.length>12) W.changeLog=W.changeLog.slice(-12);
 }
 /* ============ 상황 카드 + 프롤로그 ============ */
@@ -1262,8 +1289,8 @@ function situationCardHtml(){
 function fallbackPrologue(){
   const who=youName(); const place=districtKrOf(W.meta.start.districtKey);
   const comps=(W.meta.companions||[]).map(id=>(byId[id]||{}).title).filter(Boolean);
-  let s=place+'의 공기가 낮게 가라앉아 있다. '+who+'은(는) 익숙하면서도 낯선 거리 한복판에 서서, 멀리서 번지는 마나의 잔향에 가만히 귀를 기울인다.\n\n';
-  s+= comps.length ? (comps[0]+'이(가) 곁에서 발걸음을 맞추며 곁눈질로 당신을 살핀다. "…그래서, 이제 어디로 갈 거야?"\n\n')
+  let s=place+'의 공기가 낮게 가라앉아 있다. '+jEunNeun(who)+' 익숙하면서도 낯선 거리 한복판에 서서, 멀리서 번지는 마나의 잔향에 가만히 귀를 기울인다.\n\n';
+  s+= comps.length ? (jIGa(comps[0])+' 곁에서 발걸음을 맞추며 곁눈질로 당신을 살핀다. "…그래서, 이제 어디로 갈 거야?"\n\n')
                    : '괴이의 기척이 옅게 스민 골목 끝에서, 무언가가 당신의 선택을 기다리는 듯하다.\n\n';
   return s+'— 당신의 첫 행동이나 대사를 입력해 장면을 이어가세요.';
 }
@@ -1692,6 +1719,7 @@ function boot(){
   document.getElementById('railToggle').onclick=()=>{ renderRail(); document.body.classList.toggle('rail-open'); };
   document.getElementById('scrim').onclick=()=>document.body.classList.remove('nav-open','rail-open');
   document.querySelectorAll('#youMode button').forEach(b=>b.onclick=()=>setYouMode(b.dataset.m));
+  { const rb=document.getElementById('randomBtn'); if(rb) rb.onclick=randomizeStart; }
   document.getElementById('startBtn').onclick=()=>{
     if(youMode==='persona'){
       if(!pickPersona||!pickPersona.name||!pickPersona.detail){alert('페르소나의 이름과 상세 정보를 입력하세요.');return;}
@@ -1781,6 +1809,7 @@ HTML_SHELL = r"""<!DOCTYPE html>
           <div id="saveList"></div>
         </div>
         <div class="row" style="justify-content:center">
+          <button class="btn ghost" id="randomBtn" title="주인공·동행·지역·분위기를 무작위로 구성합니다">🎲 랜덤 구성</button>
           <button class="btn" id="startBtn">이 구성으로 시작 ▶</button>
           <button class="btn ghost" id="btnSettings2" onclick="document.getElementById('btnSettings').click()">먼저 인격 파편 조율</button>
         </div>

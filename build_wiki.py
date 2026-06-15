@@ -821,6 +821,24 @@ MAP_POS = {
 }
 
 
+# 구버전 용어 치환 — 원본(lorebook_export.json)은 불변, 빌드 산출물에서만 대체.
+DEPRECATED_TERMS = {"Magicguard": "호시모리 공방"}
+
+
+def sanitize_deprecated(obj):
+    """canon dict 내 모든 문자열에서 구버전 용어를 대체(이미지 base64는 제외)."""
+    if isinstance(obj, str):
+        for old, new in DEPRECATED_TERMS.items():
+            if old in obj:
+                obj = obj.replace(old, new)
+        return obj
+    if isinstance(obj, list):
+        return [sanitize_deprecated(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: sanitize_deprecated(v) for k, v in obj.items()}
+    return obj
+
+
 def build_js_data(ds):
     """JS DATA 객체용 dict 구성 (base64 이미지 포함)."""
     # 이미지: prefix -> {d, m}  (사용된 것 + 게스트)
@@ -866,16 +884,18 @@ def build_js_data(ds):
         with open(bpath, encoding="utf-8") as f:
             battles = json.load(f)
 
-    return {
+    out = {
         "characters": [char_out(c) for c in ds["characters"]],
         "guests": guests,
         "lore": ds["lore"],
         "events": ds["events"],
         "edges": ds["edges"],
         "history": HISTORY,
-        "images": images,
         "battles": battles,
     }
+    out = sanitize_deprecated(out)   # 구버전 용어 대체(이미지 제외 후 합산)
+    out["images"] = images
+    return out
 
 
 def generate_html(ds):
